@@ -32,11 +32,10 @@ Comparable run selection:
 Constraints:
 
 - Edit only `projects/synthetic_regression/experiments/candidate_model.py`.
-- Do not inspect or use `projects/synthetic_regression/datasets.py`,
-  `_target_function`, data-generation internals, or metadata that reveals known
-  target structure when designing a candidate. Treat them as hidden benchmark
-  internals.
-- Do not read generated raw data files (`projects/synthetic_regression/data/train.csv`,
+- Do not inspect or use benchmark generator code, hidden target structure, or
+  metadata that reveals known target structure when designing a candidate.
+  Treat them as hidden benchmark internals.
+- Do not read raw public competition files (`projects/synthetic_regression/data/train.csv`,
   `valid.csv`, `test.csv`, `sample_submission.csv`, or `metadata.json`) while
   designing a candidate. Feature names come from the allowed spec, run reports,
   candidate snapshots, or the `X` columns passed to candidate `fit`.

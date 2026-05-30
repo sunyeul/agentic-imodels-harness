@@ -9,8 +9,8 @@ Use this skill when creating a new project under `projects/` from an existing
 sample project. The default sample is `projects/synthetic_regression`.
 
 Keep this skill focused on scaffolding only. Do not run the full experiment
-loop, regenerate datasets, or improve candidate models unless the user asks for
-that separately.
+loop, create or reverse-engineer benchmark data, or improve candidate models
+unless the user asks for that separately.
 
 ## Workflow
 

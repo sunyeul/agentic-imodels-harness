@@ -1,13 +1,13 @@
 ---
 name: agentic-imodels-quickstart
-description: Use when setting up this repo for the first time, choosing or confirming the project EvaluationSpec, regenerating the synthetic dataset, running the smoke experiment, or checking that the toy AGENTIC-IMODELS harness is ready for iteration.
+description: Use when setting up this repo for the first time, choosing or confirming the project EvaluationSpec, verifying the committed public competition dataset, running the smoke experiment, or checking that the toy AGENTIC-IMODELS harness is ready for iteration.
 ---
 
 # Agentic Imodels Quickstart
 
 Use this skill before model-iteration work when the repo may not be initialized,
-when the active project evaluation spec is not yet confirmed, when generated data is
-missing, or when a user asks for the quickstart path.
+when the active project evaluation spec is not yet confirmed, when public
+competition data files need verification, or when a user asks for the quickstart path.
 
 ## Workflow
 
@@ -30,7 +30,7 @@ missing, or when a user asks for the quickstart path.
    `primary_metric_direction`, CV strategy name, split count, random seed,
    description, prediction metric keys, aggregation outputs, and report metric
    lines.
-7. Run `uv run python -m projects.synthetic_regression.datasets` to create or refresh the synthetic competition files.
+7. Run `uv run python -m projects.synthetic_regression.datasets` to verify the committed public competition files can be loaded.
 8. Run `uv run python -m projects.synthetic_regression.run_experiment` to verify the baseline candidate can train, score, write a submission, and append the leaderboard.
 9. Run `uv run --extra dev pytest` for the full smoke test suite.
 10. Inspect `projects/synthetic_regression/data/metadata.json`, `projects/synthetic_regression/results/leaderboard.csv`, `projects/synthetic_regression/results/submissions/`, and `projects/synthetic_regression/results/runs/` only enough to confirm artifacts exist.
@@ -55,6 +55,7 @@ missing, or when a user asks for the quickstart path.
 - This skill defines the conversational setup procedure; do not add a CLI wizard
   or code generator unless the user explicitly asks for one.
 - Do not tune models or interpret scores beyond confirming the harness works.
+- Do not regenerate or reverse-engineer benchmark data while acting as quickstart setup.
 - Do not delete existing leaderboard or run artifacts unless the user explicitly asks for a clean reset.
 
 ## Scaffolding a New Project

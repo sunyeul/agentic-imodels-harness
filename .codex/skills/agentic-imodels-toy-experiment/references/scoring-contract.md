@@ -41,10 +41,9 @@ Custom scoring:
 - Candidate models may use score feedback from completed runs, but must not
   import, inspect, duplicate, or alter private scoring logic unless the user
   explicitly changes the experiment design.
-- Candidate models and model-design agents must not inspect or encode project
-  data-generation internals such as `_target_function` or oracle structure
-  metadata. Use only public feature schemas, training data passed to `fit`, and
-  completed run artifacts.
+- Candidate models and model-design agents must not inspect or encode benchmark
+  generator code, hidden targets, or oracle structure metadata. Use only public
+  feature schemas, training data passed to `fit`, and completed run artifacts.
 
 Artifacts:
 

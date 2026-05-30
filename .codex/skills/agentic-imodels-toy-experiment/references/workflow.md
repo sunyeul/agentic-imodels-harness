@@ -1,6 +1,7 @@
 # Toy Experiment Workflow
 
-1. Generate data if needed: `uv run python -m projects.synthetic_regression.datasets`.
+1. Verify the committed public competition data loads:
+   `uv run python -m projects.synthetic_regression.datasets`.
 2. Resolve the target project before running:
    - If the user named a project, use it.
    - If exactly one project is available, state that project and its default spec.
@@ -13,8 +14,8 @@
    same `project_id`, `spec_name`, `primary_metric`, and
    `primary_metric_direction`.
    Use the latest three successful rows from that same comparable set as recent
-   context. Do not inspect raw generated data files or benchmark internals when
-   designing the next candidate.
+   context. Do not inspect benchmark internals, hidden targets, or any data
+   generation code when designing the next candidate.
 5. Run the current candidate: `uv run python -m projects.synthetic_regression.run_experiment`.
 6. Read `projects/synthetic_regression/results/leaderboard.csv`, including `spec_name`, `primary_metric`,
    `primary_metric_direction`, interpretability score, and any custom metric

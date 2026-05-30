@@ -30,14 +30,14 @@ Steps:
 6. Run `uv run python -m projects.synthetic_regression.datasets`.
 7. Run `uv run python -m projects.synthetic_regression.run_experiment`.
 8. Run `uv run --extra dev pytest`.
-9. Confirm the synthetic dataset files exist.
+9. Confirm the committed public competition files exist and load.
 10. Confirm `projects/synthetic_regression/results/leaderboard.csv`, a submission CSV, and a run report exist.
 
 Return:
 
 - Selected setup mode.
 - Current spec summary.
-- Dataset generation status.
+- Public competition data verification status.
 - Baseline experiment status and latest score line.
 - Test status.
 - The latest leaderboard, submission, and report paths.
@@ -49,6 +49,7 @@ Rules:
   customize path and explicitly confirmed the exact policy summary.
 - Do not add a CLI wizard or code generator while acting as quickstart runner.
 - Do not tune models or interpret scores beyond confirming readiness.
+- Do not regenerate or reverse-engineer benchmark data.
 - Do not delete or reset existing generated artifacts.
-- Do not claim readiness unless the dataset generation, baseline experiment,
+- Do not claim readiness unless the public data verification, baseline experiment,
   and test commands were run in this session.

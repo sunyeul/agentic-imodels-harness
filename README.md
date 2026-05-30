@@ -3,12 +3,17 @@
 This repository contains a small, Kaggle-like toy harness inspired by
 AGENTIC-IMODELS.
 
+The sample project is designed to test whether agent-facing interpretability
+improves an automated research loop. Good model strings are treated as search
+interfaces: they should help the next agent choose better candidate-model
+changes with fewer experiments, not merely describe the current model.
+
 The core code is organized into three layers:
 
 | Layer | Path | Role | Normal candidate-iteration edits |
 | --- | --- | --- | --- |
 | Fixed harness | `toy_imodels/` | Owns candidate loading, CV execution, metric aggregation hooks, reports, leaderboard artifacts, and fixed interpretability evaluation. | No |
-| Project definition | `projects/synthetic_regression/` | Owns the benchmark data contract, dataset loading/generation, project id, and project `EvaluationSpec` policy. | Only when intentionally changing the benchmark project |
+| Project definition | `projects/synthetic_regression/` | Owns the benchmark data contract, committed public competition files, dataset loading, project id, and project `EvaluationSpec` policy. | Only when intentionally changing the benchmark project |
 | Candidate experiment | `projects/synthetic_regression/experiments/candidate_model.py` | Owns the editable sklearn-compatible candidate regressor, including model-specific preprocessing, feature engineering, model structure, and `__str__` rendering. | Yes |
 
 `projects/synthetic_regression/run_experiment.py` is the project-scoped
@@ -37,10 +42,11 @@ For delegated setup, use:
 
 After quickstart, expect:
 
-- synthetic competition files under `projects/synthetic_regression/data/`
+- committed public competition files under `projects/synthetic_regression/data/`
 - a baseline experiment row in `projects/synthetic_regression/results/leaderboard.csv`
 - a submission CSV under `projects/synthetic_regression/results/submissions/`
 - a run report under `projects/synthetic_regression/results/runs/`
+- an oracle-free residual diagnostics artifact for each run
 - the smoke test suite to pass
 
 ## Codex harness

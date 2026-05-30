@@ -6,13 +6,12 @@ The harness owns fairness and repeatability.
 - Candidate code must not read `projects/synthetic_regression/data/valid.csv` or test targets.
 - Candidate runtime must not perform filesystem or network I/O from `fit`,
   `predict`, or `__str__`.
-- Candidate design must not inspect or encode the synthetic data generator,
-  `_target_function`, hidden target structure, or metadata fields that reveal
-  oracle structure. Treat those as benchmark internals, not public competition
-  information.
+- Candidate design must not inspect or encode benchmark generator code, hidden
+  target structure, or metadata fields that reveal oracle structure. Treat those
+  as benchmark internals, not public competition information.
 - Candidate design may use only the active spec, generic tabular methods,
   current candidate code, completed leaderboard rows, and deterministic
-  comparable run artifacts. It must not read generated raw data files while
+  comparable run artifacts. It must not read raw public competition files while
   designing a candidate, and must not hand-code transformations discovered from
   benchmark internals.
 - Comparable runs are successful rows with the same `project_id`, `spec_name`,

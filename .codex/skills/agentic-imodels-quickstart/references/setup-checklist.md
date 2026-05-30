@@ -21,9 +21,12 @@ The project evaluation spec setup is complete when all of the following are true
 
 The quickstart is successful when all of the following are true:
 
-- `uv run python -m projects.synthetic_regression.datasets` exits successfully.
-- `projects/synthetic_regression/data/train.csv`, `valid.csv`, `test.csv`, `sample_submission.csv`,
-  and `metadata.json` exist.
+- `uv run python -m projects.synthetic_regression.datasets` exits successfully
+  and only verifies committed public competition files.
+- `projects/synthetic_regression/data/train.csv`, `valid.csv`, `test.csv`,
+  `sample_submission.csv`, and `metadata.json` exist.
+- `test.csv` does not contain the target column, and `metadata.json` does not
+  expose generator seeds, target-function terms, or oracle structure.
 - `projects/synthetic_regression/spec.py` defines the project-specific default
   `EvaluationSpec` policy, including the default spec name, primary metric, and
   CV strategy metadata.

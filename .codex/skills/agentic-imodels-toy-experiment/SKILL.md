@@ -73,8 +73,8 @@ Use this skill for repeatable model-iteration work in this repository.
   `projects/synthetic_regression/spec.py`. Do not change it during model
   iteration unless the user explicitly asks to change the experiment policy.
 - Do not use validation or test targets inside candidate code.
-- Do not inspect raw generated data files or benchmark internals when designing
-  a candidate. Candidate runtime must not perform filesystem or network I/O
+- Do not inspect raw public competition files, hidden targets, generator code,
+  or benchmark internals when designing a candidate. Candidate runtime must not perform filesystem or network I/O
   from `fit`, `predict`, or `__str__`.
 - Do not create or mutate run logs from candidate code. Candidate models may
   provide `model_name`, `notes`, and `__str__`; the fixed harness owns log
