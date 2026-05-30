@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -8,7 +9,6 @@ from typing import Any
 
 import pandas as pd
 
-from projects.synthetic_regression import synthetic_regression_project
 from toy_imodels.provenance import (
     candidate_module_path,
     comparable_baseline_run_id,
@@ -40,7 +40,9 @@ def verify_experiment_run(
     metadata: dict[str, Any] = (
         json.loads(metadata_path.read_text()) if metadata_path.exists() else {}
     )
-    active_project = project or synthetic_regression_project(results_dir=results_path)
+    if project is None:
+        raise ValueError("verify_experiment_run requires an explicit project")
+    active_project = project
     spec_metadata = active_project.spec.report_metadata()
 
     findings = [
@@ -48,7 +50,7 @@ def verify_experiment_run(
         _check_snapshot_hash(metadata),
         _check_active_candidate_hash(metadata),
         _check_active_spec(metadata, spec_metadata),
-        _check_protected_paths(metadata),
+        _check_protected_paths(metadata, paths=active_project.protected_paths),
         _check_comparable_baseline(
             leaderboard,
             metadata=metadata,
@@ -74,12 +76,20 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--results-dir",
-        default="projects/synthetic_regression/results",
+        required=True,
         help="Project results directory.",
+    )
+    parser.add_argument(
+        "--project-module",
+        required=True,
+        help="Dotted factory path, e.g. package.project:make_project.",
     )
     args = parser.parse_args(argv)
 
-    findings = verify_experiment_run(results_dir=args.results_dir, run_id=args.run_id)
+    project = _load_project(args.project_module, results_dir=Path(args.results_dir))
+    findings = verify_experiment_run(
+        results_dir=args.results_dir, run_id=args.run_id, project=project
+    )
     for finding in findings:
         status = "PASS" if finding.ok else "FAIL"
         print(f"{status} {finding.check}: {finding.detail}")
@@ -193,7 +203,18 @@ def _check_active_spec(
     return AuditFinding("active_spec", True, str(metadata.get("spec_name", "")))
 
 
-def _check_protected_paths(metadata: dict[str, Any]) -> AuditFinding:
+def _load_project(project_module: str, *, results_dir: Path) -> Any:
+    module_name, separator, factory_name = project_module.partition(":")
+    if not separator or not module_name or not factory_name:
+        raise ValueError("--project-module must have the form module:function")
+    module = importlib.import_module(module_name)
+    factory = getattr(module, factory_name)
+    return factory(results_dir=results_dir)
+
+
+def _check_protected_paths(
+    metadata: dict[str, Any], *, paths: tuple[str, ...]
+) -> AuditFinding:
     if bool(metadata.get("git_dirty", False)):
         return AuditFinding(
             "protected_paths",
@@ -201,7 +222,9 @@ def _check_protected_paths(metadata: dict[str, Any]) -> AuditFinding:
             "run metadata recorded a dirty tree; protected drift check is limited",
         )
     git_commit = str(metadata.get("git_commit", ""))
-    changed = protected_paths_changed_since_commit(git_commit, root=repo_root())
+    changed = protected_paths_changed_since_commit(
+        git_commit, paths=paths, root=repo_root()
+    )
     if changed:
         return AuditFinding(
             "protected_paths",

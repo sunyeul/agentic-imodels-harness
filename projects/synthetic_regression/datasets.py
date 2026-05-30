@@ -6,7 +6,7 @@ from typing import cast
 
 import pandas as pd
 
-from toy_imodels.core.project import CompetitionData
+from toy_imodels.core.project import EvaluationData
 
 PROJECT_DIR = Path(__file__).resolve().parent
 DEFAULT_DATA_DIR = PROJECT_DIR / "data"
@@ -14,9 +14,9 @@ FEATURE_COLUMNS = [f"x{i}" for i in range(15)]
 TARGET_COLUMN = "target"
 
 
-def load_competition_data(
+def load_evaluation_data(
     data_dir: str | Path = DEFAULT_DATA_DIR,
-) -> CompetitionData:
+) -> EvaluationData:
     data_path = Path(data_dir)
     required_files = ("train.csv", "valid.csv", "test.csv", "metadata.json")
     missing_files = [name for name in required_files if not (data_path / name).exists()]
@@ -37,19 +37,20 @@ def load_competition_data(
     if TARGET_COLUMN in test.columns:
         raise ValueError("test.csv must not contain the target column")
 
-    return CompetitionData(
-        x_train=cast(pd.DataFrame, train[FEATURE_COLUMNS]),
-        y_train=cast(pd.Series, train[TARGET_COLUMN]),
-        x_valid=cast(pd.DataFrame, valid[FEATURE_COLUMNS]),
-        y_valid=cast(pd.Series, valid[TARGET_COLUMN]),
+    return EvaluationData(
+        x_labeled=cast(
+            pd.DataFrame, pd.concat([train[FEATURE_COLUMNS], valid[FEATURE_COLUMNS]])
+        ).reset_index(drop=True),
+        y_labeled=cast(
+            pd.Series, pd.concat([train[TARGET_COLUMN], valid[TARGET_COLUMN]])
+        ).reset_index(drop=True),
         x_test=cast(pd.DataFrame, test[["id", *FEATURE_COLUMNS]]),
         feature_columns=list(FEATURE_COLUMNS),
-        target_column=TARGET_COLUMN,
     )
 
 
 if __name__ == "__main__":
-    data = load_competition_data()
+    data = load_evaluation_data()
     print(
         "Loaded synthetic competition files from "
         f"{DEFAULT_DATA_DIR} with {len(data.feature_columns)} features"

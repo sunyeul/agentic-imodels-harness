@@ -3,10 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
-import numpy as np
-
-from toy_imodels.metrics import mae, r2, rmse
-
 MetricDirection = Literal["minimize", "maximize"]
 
 
@@ -50,23 +46,12 @@ class EvaluationSpec:
             )
 
     def score_predictions(self, y_true: Any, y_pred: Any) -> dict[str, float]:
-        return {
-            "rmse": rmse(y_true, y_pred),
-            "mae": mae(y_true, y_pred),
-            "r2": r2(y_true, y_pred),
-        }
+        raise NotImplementedError
 
     def aggregate_fold_scores(
         self, fold_scores: list[dict[str, float]]
     ) -> dict[str, float]:
-        return {
-            "cv_rmse_mean": self._mean(fold_scores, "rmse"),
-            "cv_rmse_std": self._std(fold_scores, "rmse"),
-            "cv_mae_mean": self._mean(fold_scores, "mae"),
-            "cv_mae_std": self._std(fold_scores, "mae"),
-            "cv_r2_mean": self._mean(fold_scores, "r2"),
-            "cv_r2_std": self._std(fold_scores, "r2"),
-        }
+        raise NotImplementedError
 
     def report_metadata(self) -> dict[str, object]:
         return {
@@ -88,24 +73,9 @@ class EvaluationSpec:
             for metric_name, metric_value in metrics.items()
         ]
 
-    @staticmethod
-    def _mean(fold_scores: list[dict[str, float]], metric_name: str) -> float:
-        return float(np.mean([scores[metric_name] for scores in fold_scores]))
-
-    @staticmethod
-    def _std(fold_scores: list[dict[str, float]], metric_name: str) -> float:
-        return float(np.std([scores[metric_name] for scores in fold_scores]))
-
     def _format_metric_line(self, metric_name: str, metric_value: float) -> str:
         primary_marker = " (primary)" if metric_name == self.primary_metric else ""
         return f"- {metric_name}{primary_marker}: {metric_value:.6f}"
 
     def result_metrics(self, metrics: dict[str, float]) -> dict[str, float]:
-        return {
-            "cv_rmse_mean": metrics.get("cv_rmse_mean", float("nan")),
-            "cv_rmse_std": metrics.get("cv_rmse_std", float("nan")),
-            "cv_mae_mean": metrics.get("cv_mae_mean", float("nan")),
-            "cv_mae_std": metrics.get("cv_mae_std", float("nan")),
-            "cv_r2_mean": metrics.get("cv_r2_mean", float("nan")),
-            "cv_r2_std": metrics.get("cv_r2_std", float("nan")),
-        }
+        return metrics

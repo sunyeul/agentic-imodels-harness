@@ -8,7 +8,9 @@ def main() -> None:
     result = run_experiment(project=synthetic_regression_project())
     print(
         f"{result.status}: {result.model_name} "
-        f"cv_rmse={result.cv_rmse_mean:.6f}+/-{result.cv_rmse_std:.6f} "
+        "cv_rmse="
+        f"{result.result_metrics['cv_rmse_mean']:.6f}+/-"
+        f"{result.result_metrics['cv_rmse_std']:.6f} "
         f"interp={result.interpretability_score:.4f}"
     )
 

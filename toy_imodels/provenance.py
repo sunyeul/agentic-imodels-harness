@@ -7,13 +7,6 @@ from pathlib import Path
 
 import pandas as pd
 
-PROTECTED_EXPERIMENT_PATHS = (
-    "toy_imodels/",
-    "projects/synthetic_regression/spec.py",
-    "projects/synthetic_regression/datasets.py",
-    "projects/synthetic_regression/data/",
-)
-
 
 @dataclass(frozen=True, slots=True)
 class GitProvenance:
@@ -50,24 +43,24 @@ def collect_git_provenance(start: str | Path = ".") -> GitProvenance:
 
 
 def protected_paths_changed_since_commit(
-    git_commit: str, *, root: str | Path = "."
+    git_commit: str, *, paths: tuple[str, ...], root: str | Path = "."
 ) -> list[str]:
     if not git_commit:
         return []
     repo = repo_root(root)
     diff_changed = _git_stdout(
-        ["diff", "--name-only", git_commit, "--", *PROTECTED_EXPERIMENT_PATHS],
+        ["diff", "--name-only", git_commit, "--", *paths],
         cwd=repo,
     )
     status_changed = _git_stdout(
-        ["status", "--porcelain", "--", *PROTECTED_EXPERIMENT_PATHS],
+        ["status", "--porcelain", "--", *paths],
         cwd=repo,
     )
-    paths = set(filter(None, diff_changed.splitlines()))
+    changed_paths = set(filter(None, diff_changed.splitlines()))
     for line in status_changed.splitlines():
         if len(line) > 3:
-            paths.add(line[3:])
-    return sorted(paths)
+            changed_paths.add(line[3:])
+    return sorted(changed_paths)
 
 
 def candidate_module_path(candidate_module: str, *, root: str | Path = ".") -> Path:

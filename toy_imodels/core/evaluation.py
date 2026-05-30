@@ -41,18 +41,6 @@ class CandidateContractError(RuntimeError):
     """Raised when the editable candidate model does not match the harness API."""
 
 
-FORBIDDEN_CANDIDATE_SOURCE_FRAGMENTS = (
-    "projects.synthetic_regression.datasets",
-    "synthetic_regression.datasets",
-    "DEFAULT_DATA_DIR",
-    "train.csv",
-    "valid.csv",
-    "test.csv",
-    "sample_submission.csv",
-    "metadata.json",
-)
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class EvaluationResult:
     run_id: str
@@ -64,27 +52,18 @@ class EvaluationResult:
     spec_name: str
     primary_metric: str
     primary_metric_direction: str
-    cv_rmse_mean: float
-    cv_rmse_std: float
-    cv_mae_mean: float
-    cv_mae_std: float
-    cv_r2_mean: float
-    cv_r2_std: float
     cv_strategy_name: str
     cv_n_splits: int
     cv_random_state: int | None
     interpretability_score: float
     status: Literal["success"]
-    submission_path: str
     report_path: str
     fold_metrics_path: str
     run_metadata_path: str
     candidate_snapshot_path: str
-    residual_diagnostics_path: str
     metrics: dict[str, float]
-    valid_rmse: float | None = None
-    valid_mae: float | None = None
-    valid_r2: float | None = None
+    result_metrics: dict[str, float]
+    artifact_paths: dict[str, str]
     error_traceback_path: str = ""
     error: str = ""
 
@@ -97,17 +76,26 @@ class EvaluationResult:
         row = {
             field.name: getattr(self, field.name)
             for field in fields(self)
-            if field.name != "metrics"
+            if field.name not in {"metrics", "result_metrics", "artifact_paths"}
         }
         row.update(spec_metadata)
+        row.update(self.result_metrics)
+        row.update(self.artifact_paths)
         row.update(leaderboard_metrics)
         return row
 
 
 def _load_candidate_class(
-    module_name: str, import_path: list[Path] | None = None
+    module_name: str,
+    *,
+    forbidden_source_fragments: tuple[str, ...],
+    import_path: list[Path] | None = None,
 ) -> type[BaseCandidateModel]:
-    _reject_candidate_leakage_source(module_name, import_path=import_path)
+    _reject_candidate_leakage_source(
+        module_name,
+        forbidden_source_fragments=forbidden_source_fragments,
+        import_path=import_path,
+    )
     added_paths: list[str] = []
     if import_path:
         for path in import_path:
@@ -158,12 +146,15 @@ def _candidate_source_before_import(
 
 
 def _reject_candidate_leakage_source(
-    module_name: str, import_path: list[Path] | None = None
+    module_name: str,
+    *,
+    forbidden_source_fragments: tuple[str, ...],
+    import_path: list[Path] | None = None,
 ) -> None:
     source = _candidate_source_before_import(module_name, import_path=import_path)
     forbidden_hits = [
         fragment
-        for fragment in FORBIDDEN_CANDIDATE_SOURCE_FRAGMENTS
+        for fragment in forbidden_source_fragments
         if fragment in source
     ]
     if forbidden_hits:
@@ -302,98 +293,6 @@ def _write_fold_metrics(
     )
 
 
-def _safe_corr(left: pd.Series, right: pd.Series) -> float:
-    corr = left.corr(right)
-    if pd.isna(corr):
-        return 0.0
-    return float(corr)
-
-
-def _feature_bin_records(
-    feature: pd.Series, residuals: pd.Series, *, n_bins: int = 4
-) -> list[dict[str, object]]:
-    ranked = feature.rank(method="first")
-    bins = cast(pd.Series, pd.qcut(ranked, q=n_bins, labels=False, duplicates="drop"))
-    records: list[dict[str, object]] = []
-    for bin_index in sorted(bins.dropna().unique()):
-        mask = bins == bin_index
-        feature_bin = cast(pd.Series, feature[mask])
-        residual_bin = cast(pd.Series, residuals[mask])
-        records.append(
-            {
-                "bin_index": int(bin_index),
-                "row_count": int(mask.sum()),
-                "feature_min": float(feature_bin.min()),
-                "feature_max": float(feature_bin.max()),
-                "residual_mean": float(residual_bin.mean()),
-                "residual_abs_mean": float(residual_bin.abs().mean()),
-            }
-        )
-    return records
-
-
-def _write_residual_diagnostics(
-    run_dir: Path,
-    *,
-    run_id: str,
-    project_id: str,
-    x_labeled: pd.DataFrame,
-    y_labeled: pd.Series,
-    oof_predictions: pd.Series,
-) -> Path:
-    residuals = y_labeled - oof_predictions
-    feature_records = []
-    for feature_name in x_labeled.columns:
-        feature = cast(pd.Series, x_labeled[feature_name])
-        bins = _feature_bin_records(feature, residuals)
-        max_bin_shift = max(
-            (abs(cast(float, item["residual_mean"])) for item in bins),
-            default=0.0,
-        )
-        feature_records.append(
-            {
-                "feature": feature_name,
-                "residual_correlation": _safe_corr(feature, residuals),
-                "absolute_residual_correlation": _safe_corr(
-                    feature.abs(), residuals.abs()
-                ),
-                "max_abs_bin_residual_mean": float(max_bin_shift),
-                "bins": bins,
-            }
-        )
-
-    ranked_features = sorted(
-        feature_records,
-        key=lambda item: (
-            abs(cast(float, item["residual_correlation"])),
-            cast(float, item["max_abs_bin_residual_mean"]),
-        ),
-        reverse=True,
-    )
-    return _write_json_artifact(
-        run_dir / "residual_diagnostics.json",
-        {
-            "run_id": run_id,
-            "project_id": project_id,
-            "diagnostic_note": (
-                "Diagnostics are computed from out-of-fold residuals only. "
-                "They expose observed error patterns, not hidden benchmark "
-                "oracle structure."
-            ),
-            "residual_summary": {
-                "mean": float(residuals.mean()),
-                "std": float(residuals.std()),
-                "abs_mean": float(residuals.abs().mean()),
-                "p10": float(residuals.quantile(0.10)),
-                "p50": float(residuals.quantile(0.50)),
-                "p90": float(residuals.quantile(0.90)),
-            },
-            "top_features_by_residual_pattern": ranked_features[:8],
-            "feature_diagnostics": feature_records,
-        },
-    )
-
-
 def _write_run_metadata(
     run_dir: Path,
     *,
@@ -405,10 +304,9 @@ def _write_run_metadata(
     git_provenance: GitProvenance,
     spec_metadata: dict[str, object],
     report_path: Path,
-    submission_path: Path,
     fold_metrics_path: Path,
-    residual_diagnostics_path: Path,
     candidate_snapshot_path: Path,
+    artifact_paths: dict[str, str],
 ) -> Path:
     return _write_json_artifact(
         run_dir / "run_metadata.json",
@@ -435,10 +333,9 @@ def _write_run_metadata(
             },
             "artifacts": {
                 "report_path": str(report_path),
-                "submission_path": str(submission_path),
                 "fold_metrics_path": str(fold_metrics_path),
-                "residual_diagnostics_path": str(residual_diagnostics_path),
                 "candidate_snapshot_path": str(candidate_snapshot_path),
+                **artifact_paths,
             },
         },
     )
@@ -473,17 +370,16 @@ def run_experiment(
 
     try:
         candidate_class = _load_candidate_class(
-            candidate_module, import_path=import_path
+            candidate_module,
+            forbidden_source_fragments=project.forbidden_candidate_source_fragments,
+            import_path=import_path,
         )
-        competition_data = project.load_data(project.data_dir)
-        x_labeled = pd.concat(
-            [competition_data.x_train, competition_data.x_valid], ignore_index=True
-        )
-        y_labeled = pd.concat(
-            [competition_data.y_train, competition_data.y_valid], ignore_index=True
-        )
+        evaluation_data = project.load_data(project.data_dir)
         cv_metrics, fold_records, oof_predictions = _cross_validate_candidate(
-            candidate_class, x_labeled, y_labeled, evaluation_spec=evaluation_spec
+            candidate_class,
+            evaluation_data.x_labeled,
+            evaluation_data.y_labeled,
+            evaluation_spec=evaluation_spec,
         )
         result_metrics = evaluation_spec.result_metrics(cv_metrics)
         leaderboard_metrics = evaluation_spec.leaderboard_metrics(cv_metrics)
@@ -498,19 +394,23 @@ def run_experiment(
             project_id=project.project_id,
             fold_records=fold_records,
         )
-        residual_diagnostics_path = _write_residual_diagnostics(
-            runs_dir,
-            run_id=run_id,
-            project_id=project.project_id,
-            x_labeled=x_labeled,
-            y_labeled=y_labeled,
-            oof_predictions=oof_predictions,
-        )
+        artifact_paths: dict[str, str] = {}
+        diagnostics_path = None
+        if project.write_diagnostics is not None:
+            diagnostics_path = project.write_diagnostics(
+                runs_dir,
+                run_id,
+                project.project_id,
+                evaluation_data,
+                oof_predictions,
+            )
+            if diagnostics_path is not None:
+                artifact_paths["diagnostics_path"] = str(diagnostics_path)
 
         candidate = _make_candidate(candidate_class)
-        candidate.fit(x_labeled, y_labeled)
+        candidate.fit(evaluation_data.x_labeled, evaluation_data.y_labeled)
         test_pred = candidate.predict(
-            competition_data.x_test[competition_data.feature_columns]
+            evaluation_data.x_test[evaluation_data.feature_columns]
         )
         model_string = str(candidate)
 
@@ -523,10 +423,10 @@ def run_experiment(
             project_id=project.project_id,
         )
 
-        submission_path = submissions_dir / f"{run_id}.csv"
-        pd.DataFrame(
-            {"id": competition_data.x_test["id"].to_numpy(), "prediction": test_pred}
-        ).to_csv(submission_path, index=False)
+        submission_path = project.write_submission(
+            submissions_dir, run_id, evaluation_data, test_pred
+        )
+        artifact_paths["submission_path"] = str(submission_path)
         planned_run_metadata_path = runs_dir / "run_metadata.json"
         report_path = write_run_report(
             runs_dir,
@@ -546,7 +446,7 @@ def run_experiment(
             interpretability_score=interp_score,
             model_string=model_string,
             fold_metrics_path=fold_metrics_path,
-            residual_diagnostics_path=residual_diagnostics_path,
+            diagnostics_path=diagnostics_path,
             run_metadata_path=planned_run_metadata_path,
             candidate_snapshot_path=candidate_snapshot_path,
             next_candidate_path=f"{candidate_module.replace('.', '/')}.py",
@@ -561,10 +461,9 @@ def run_experiment(
             git_provenance=git_provenance,
             spec_metadata=spec_metadata,
             report_path=report_path,
-            submission_path=submission_path,
             fold_metrics_path=fold_metrics_path,
-            residual_diagnostics_path=residual_diagnostics_path,
             candidate_snapshot_path=candidate_snapshot_path,
+            artifact_paths=artifact_paths,
         )
 
         result = EvaluationResult(
@@ -577,24 +476,18 @@ def run_experiment(
             spec_name=str(spec_metadata["spec_name"]),
             primary_metric=str(spec_metadata["primary_metric"]),
             primary_metric_direction=str(spec_metadata["primary_metric_direction"]),
-            cv_rmse_mean=result_metrics["cv_rmse_mean"],
-            cv_rmse_std=result_metrics["cv_rmse_std"],
-            cv_mae_mean=result_metrics["cv_mae_mean"],
-            cv_mae_std=result_metrics["cv_mae_std"],
-            cv_r2_mean=result_metrics["cv_r2_mean"],
-            cv_r2_std=result_metrics["cv_r2_std"],
             cv_strategy_name=str(spec_metadata["cv_strategy_name"]),
             cv_n_splits=cv_n_splits,
             cv_random_state=cv_random_state,
             interpretability_score=interp_score,
             status="success",
-            submission_path=str(submission_path),
             report_path=str(report_path),
             fold_metrics_path=str(fold_metrics_path),
             run_metadata_path=str(run_metadata_path),
             candidate_snapshot_path=str(candidate_snapshot_path),
-            residual_diagnostics_path=str(residual_diagnostics_path),
             metrics=cv_metrics,
+            result_metrics=result_metrics,
+            artifact_paths=artifact_paths,
         )
         append_result(
             results_path,
