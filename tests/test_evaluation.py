@@ -1,4 +1,5 @@
 import json
+import math
 import shutil
 import textwrap
 from pathlib import Path
@@ -21,7 +22,6 @@ from toy_imodels.interpretability import (
     RUBRIC_VERSION,
     audit_interpretability_judgment,
     build_interpretability_packet,
-    score_model_string_static,
     validate_interpretability_judgment,
 )
 from toy_imodels.leaderboard import append_result, update_result
@@ -79,6 +79,43 @@ def _write_fake_submission(
     return path
 
 
+def _write_valid_interpretability_judgment(tmp_path: Path, run_id: str) -> Path:
+    judgment_path = tmp_path / f"{run_id}-judgment.json"
+    judgment_path.write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "rubric_version": RUBRIC_VERSION,
+                "dimension_scores": {
+                    "prediction": {
+                        "score": 1.0,
+                        "rationale": "The model string includes an equation.",
+                    },
+                    "feature_effects": {
+                        "score": 0.8,
+                        "rationale": "Top coefficients are listed.",
+                    },
+                    "sensitivity": {
+                        "score": 0.6,
+                        "rationale": "Coefficient magnitudes support local changes.",
+                    },
+                    "counterfactual": {
+                        "score": 0.4,
+                        "rationale": "Counterfactuals can be inferred from signs.",
+                    },
+                    "structure": {
+                        "score": 0.7,
+                        "rationale": "The model family is explicitly linear ridge.",
+                    },
+                },
+                "interpretability_score": 0.7,
+            }
+        )
+        + "\n"
+    )
+    return judgment_path
+
+
 def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     project = synthetic_regression_project(
         data_dir=_copy_competition_data(tmp_path),
@@ -104,12 +141,13 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert result.result_metrics["cv_mae_std"] >= 0
     assert -1 <= result.result_metrics["cv_r2_mean"] <= 1
     assert result.result_metrics["cv_r2_std"] >= 0
-    assert result.interpretability_score > 0
+    assert math.isnan(result.interpretability_score)
 
     leaderboard = pd.read_csv(tmp_path / "results" / "leaderboard.csv")
     assert leaderboard.shape[0] == 1
     assert leaderboard.loc[0, "run_id"] == "test-run"
     assert leaderboard.loc[0, "status"] == "success"
+    assert pd.isna(leaderboard.loc[0, "interpretability_score"])
     for column in (
         "project_id",
         "candidate_module",
@@ -164,6 +202,8 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert "Diagnostics:" in report_text
     assert "Run metadata:" in report_text
     assert "Candidate snapshot:" in report_text
+    assert "Interpretability status: pending_agent_judgment" in report_text
+    assert "Interpretability score: NaN" in report_text
     assert "Model string" in report_text
 
     fold_metrics = json.loads(Path(result.fold_metrics_path).read_text())
@@ -234,7 +274,8 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert "Spec: default" in journal_text
     assert "Primary metric: cv_rmse_mean" in journal_text
     assert "Comparable baseline: test-run" in journal_text
-    assert "Interpretability status: static_fallback" in journal_text
+    assert "Interpretability status: pending_agent_judgment" in journal_text
+    assert "Interpretability score: NaN" in journal_text
     assert "Next Action" in journal_text
 
     packet_path = (
@@ -253,6 +294,16 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
         "counterfactual",
         "structure",
     ]
+    assert not (
+        tmp_path / "results" / "runs" / "test-run" / "interpretability_judgment.json"
+    ).exists()
+    assert not (
+        tmp_path
+        / "results"
+        / "runs"
+        / "test-run"
+        / "interpretability_judgment_audit.json"
+    ).exists()
     assert "calibration_guide" in packet
     assert "high" in packet["calibration_guide"]["prediction"]
     assert "output_schema" in packet
@@ -602,7 +653,7 @@ def test_run_experiment_supports_non_regression_project_policy(tmp_path):
     assert "Diagnostics:" not in report_text
 
 
-def test_interpretability_score_is_fixed_harness_evaluator(tmp_path):
+def test_interpretability_score_requires_agent_judgment(tmp_path):
     project = synthetic_regression_project(
         data_dir=_copy_competition_data(tmp_path),
         results_dir=tmp_path / "results",
@@ -613,10 +664,11 @@ def test_interpretability_score_is_fixed_harness_evaluator(tmp_path):
     )
 
     report_text = Path(result.report_path).read_text()
-    model_string = report_text.split("```text\n", maxsplit=1)[1].split(
-        "\n```", maxsplit=1
-    )[0]
-    assert result.interpretability_score == score_model_string_static(model_string)
+    leaderboard = pd.read_csv(tmp_path / "results" / "leaderboard.csv")
+    assert math.isnan(result.interpretability_score)
+    assert pd.isna(leaderboard.loc[0, "interpretability_score"])
+    assert "Interpretability status: pending_agent_judgment" in report_text
+    assert "Static interpretability score" not in report_text
     assert not hasattr(EvaluationSpec, "score_model_string")
 
 
@@ -629,39 +681,7 @@ def test_apply_interpretability_judgment_updates_leaderboard_and_report(tmp_path
         project=project,
         run_id="judged-run",
     )
-    judgment_path = tmp_path / "judgment.json"
-    judgment_path.write_text(
-        json.dumps(
-            {
-                "run_id": "judged-run",
-                "rubric_version": RUBRIC_VERSION,
-                "dimension_scores": {
-                    "prediction": {
-                        "score": 1.0,
-                        "rationale": "The model string includes an equation.",
-                    },
-                    "feature_effects": {
-                        "score": 0.8,
-                        "rationale": "Top coefficients are listed.",
-                    },
-                    "sensitivity": {
-                        "score": 0.6,
-                        "rationale": "Coefficient magnitudes support local changes.",
-                    },
-                    "counterfactual": {
-                        "score": 0.4,
-                        "rationale": "Counterfactuals can be inferred from signs.",
-                    },
-                    "structure": {
-                        "score": 0.7,
-                        "rationale": "The model family is explicitly linear ridge.",
-                    },
-                },
-                "interpretability_score": 0.7,
-            }
-        )
-        + "\n"
-    )
+    judgment_path = _write_valid_interpretability_judgment(tmp_path, "judged-run")
 
     normalized_path = apply_interpretability_judgment(
         results_dir=tmp_path / "results",
@@ -684,6 +704,7 @@ def test_apply_interpretability_judgment_updates_leaderboard_and_report(tmp_path
     audit = json.loads(audit_path.read_text())
     assert audit["audit_status"] in {"pass", "review"}
     assert audit["judged_score"] == 0.7
+    assert "static_fallback_score" not in audit
 
     leaderboard = pd.read_csv(tmp_path / "results" / "leaderboard.csv")
     assert leaderboard.shape[0] == 1
@@ -755,12 +776,37 @@ def test_update_result_can_target_project_scoped_duplicate_run_ids(tmp_path):
     assert second_score == 0.9
 
 
-def test_verify_experiment_run_passes_for_fresh_successful_run(tmp_path):
+def test_verify_experiment_run_fails_before_agent_judgment(tmp_path):
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    run_experiment(project=project, run_id="audit-pending-judgment")
+
+    findings = verify_experiment_run(
+        results_dir=tmp_path / "results",
+        run_id="audit-pending-judgment",
+        project=project,
+    )
+
+    judgment = next(
+        finding for finding in findings if finding.check == "interpretability_judgment"
+    )
+    assert not judgment.ok
+    assert "pending agent judgment" in judgment.detail
+
+
+def test_verify_experiment_run_passes_for_agent_judged_run(tmp_path):
     project = synthetic_regression_project(
         data_dir=_copy_competition_data(tmp_path),
         results_dir=tmp_path / "results",
     )
     run_experiment(project=project, run_id="audit-pass")
+    apply_interpretability_judgment(
+        results_dir=tmp_path / "results",
+        run_id="audit-pass",
+        judgment_path=_write_valid_interpretability_judgment(tmp_path, "audit-pass"),
+    )
 
     findings = verify_experiment_run(
         results_dir=tmp_path / "results",
@@ -777,6 +823,7 @@ def test_verify_experiment_run_passes_for_fresh_successful_run(tmp_path):
         "protected_paths",
         "comparable_baseline",
         "journal",
+        "interpretability_judgment",
     }
 
 
@@ -883,7 +930,7 @@ def test_append_result_requires_project_id(tmp_path):
         )
 
 
-def test_interpretability_judgment_audit_flags_overgenerous_scores():
+def test_interpretability_judgment_audit_flags_scores_without_evidence_terms():
     packet = build_interpretability_packet(
         run_id="weak-run",
         model_string="Opaque predictor.",
@@ -908,8 +955,11 @@ def test_interpretability_judgment_audit_flags_overgenerous_scores():
 
     assert audit["audit_status"] == "review"
     assert audit["judged_score"] == 1.0
-    assert audit["static_fallback_score"] < 1.0
-    assert any("much higher" in warning for warning in audit["warnings"])
+    assert "static_fallback_score" not in audit
+    assert any(
+        "without obvious model-string evidence" in warning
+        for warning in audit["warnings"]
+    )
 
 
 @pytest.mark.parametrize(
