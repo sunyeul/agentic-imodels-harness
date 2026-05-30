@@ -19,9 +19,9 @@ Steps:
    `candidate_snapshot.py`, and `interpretability_packet.json` enough to verify
    they correspond to the same run id and candidate source.
 7. Report whether `interpretability_judgment_path` is present. If present,
-   treat the leaderboard score as agent-judged; otherwise label it as static
-   fallback and recommend `.codex/agents/interpretability-judge.md` when a judge
-   score is needed.
+   treat the leaderboard score as agent-judged; otherwise label it as
+   pending_agent_judgment and recommend `.codex/agents/interpretability-judge.md`
+   when a judge score is needed.
 8. If the run fails, read the leaderboard failure row and
    `error_traceback.txt` instead of hiding the failure.
 
@@ -29,7 +29,7 @@ Return:
 
 - The run id, active evaluation spec, declared primary metric, primary metric direction,
    primary score, RMSE, MAE, R2 diagnostics, interpretability score source
-   (agent-judged or static fallback), any custom score columns, and artifact
+   (agent-judged or pending_agent_judgment), any custom score columns, and artifact
    paths.
 - Fold-level metric range or notable outlier fold, if fold metrics exist.
 - Whether run metadata and candidate snapshot were written.

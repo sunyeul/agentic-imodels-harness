@@ -23,8 +23,9 @@ Scores:
 - Primary metric direction is recorded as `primary_metric_direction`; default
   RMSE uses `minimize`.
 - Secondary: CV mean MAE, CV mean R2, fold standard deviations, and
-  interpretability score. Prefer agent-judged interpretability when a judgment
-  has been applied; otherwise treat the static score as a fallback.
+  interpretability score after an agent judgment has been applied. Until then,
+  leaderboard score is `NaN` and report/journal status is
+  `pending_agent_judgment`.
 
 Custom scoring:
 

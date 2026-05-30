@@ -27,9 +27,9 @@
 8. If no agent judgment exists, recommend using
    `.codex/agents/interpretability-judge.md`. If a draft judgment exists, apply
    it through the fixed harness with `apply_interpretability_judgment()`.
-9. Compare against the baseline for predictive performance and
-   interpretability. Prefer agent-judged interpretability when present; otherwise
-   label the static score as a fallback.
+9. Compare against the baseline for predictive performance. Compare
+   interpretability only after agent judgments exist for the relevant runs;
+   otherwise label interpretability as `pending_agent_judgment`.
 10. Form one modeling hypothesis against the declared primary metric and
     performance-agentic-interpretability frontier position. The hypothesis
     should name the improvement direction being explored, such as feature

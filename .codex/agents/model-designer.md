@@ -92,7 +92,7 @@ Task:
    call out when older rows are not apples-to-apples.
 3. Inspect recent run artifacts enough to understand score movement, fold
    behavior, candidate source, model-string quality, and whether
-   interpretability is agent-judged or static fallback.
+   interpretability is agent-judged or still pending agent judgment.
 4. Edit `projects/synthetic_regression/experiments/candidate_model.py` only when the hypothesis is clear.
 5. Ensure the implementation remains sklearn-style and that `__str__` exposes
    enough prediction, feature-effect, sensitivity, counterfactual, and

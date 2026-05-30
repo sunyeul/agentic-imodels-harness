@@ -43,11 +43,11 @@ Use this skill for repeatable model-iteration work in this repository.
   if a draft judgment exists, apply it through the fixed harness with
   `apply_interpretability_judgment()` so the leaderboard, report, audit artifact,
   and journal are updated together.
-10. Analyze performance and interpretability together. Prefer agent-judged
-   interpretability scores when present; otherwise mark the static score as a
-   fallback. Report whether the latest run improves both predictive performance
-   and interpretability against the baseline, or whether it is non-dominated
-   among comparable successful runs.
+10. Analyze performance and interpretability together only after an agent
+   judgment has been applied. If no judgment exists, treat interpretability as
+   `pending_agent_judgment` and do not compare interpretability scores. Report
+   whether the latest run improves predictive performance against the baseline,
+   and whether interpretability still needs judgment before frontier analysis.
 11. Recommend the next single experiment, but do not run another iteration
     until the user chooses to continue.
 12. Use `.codex/agents/model-designer.md`, `.codex/agents/experiment-runner.md`, or `.codex/agents/result-analyst.md` for focused subagent work.
@@ -66,8 +66,9 @@ Use this skill for repeatable model-iteration work in this repository.
 - Do: edit only `projects/synthetic_regression/experiments/candidate_model.py` and run the fixed harness.
 - Check: inspect the current leaderboard row, `report.md`, `fold_metrics.json`,
   `run_metadata.json`, interpretability artifacts, and any `error_traceback.txt`.
-  Prefer agent-judged interpretability when available; use the static score only
-  as a fallback.
+  Treat interpretability as pending until `apply_interpretability_judgment()`
+  has written the judgment, audit artifact, leaderboard update, report update,
+  and journal update.
 - Audit: run `task verify-experiment -- <run_id>` before retaining a candidate
   to check Git provenance, candidate snapshot hash, active spec metadata,
   protected harness/spec/data drift, comparable baseline, and the tracked

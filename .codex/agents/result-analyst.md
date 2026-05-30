@@ -21,17 +21,16 @@ Return:
   `primary_metric_direction`. Use the direction to decide better/worse.
 - The baseline run: the earliest successful row with the same `project_id`,
   `spec_name`, `primary_metric`, and `primary_metric_direction`.
-- The latest run's predictive performance delta and interpretability delta
-  against that baseline.
-- Whether the latest run improved both predictive performance and
-  interpretability against the baseline.
-- If it did not improve both, whether it is non-dominated among comparable
-  successful runs: no comparable run is at least as good on both predictive
+- The latest run's predictive performance delta against that baseline.
+- If agent judgments exist for both runs, the interpretability delta against
+  that baseline and whether the latest run improved both predictive performance
+  and interpretability.
+- If agent judgments exist for comparable runs, whether the latest run is
+  non-dominated: no comparable run is at least as good on both predictive
   performance and interpretability while strictly better on one.
 - Any RMSE movement as a diagnostic when the primary score is custom.
 - Any custom metric columns introduced by the current `EvaluationSpec`.
-- Whether interpretability is agent-judged or static fallback. Prefer
-  agent-judged score when `interpretability_judgment_path` is present.
+- Whether interpretability is agent-judged or pending agent judgment.
 - Whether the model string remained useful for a judge.
 - Fold-level behavior or artifact evidence that helps explain the movement.
 - A likely reason for the score movement, grounded in the latest report,

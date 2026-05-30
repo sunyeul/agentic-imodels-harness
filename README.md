@@ -12,7 +12,7 @@ The core code is organized into three layers:
 
 | Layer | Path | Role | Normal candidate-iteration edits |
 | --- | --- | --- | --- |
-| Fixed harness | `toy_imodels/` | Owns candidate loading, CV execution, metric aggregation hooks, reports, leaderboard artifacts, and fixed interpretability evaluation. | No |
+| Fixed harness | `toy_imodels/` | Owns candidate loading, CV execution, metric aggregation hooks, reports, leaderboard artifacts, interpretability packets, and judgment application. | No |
 | Project definition | `projects/synthetic_regression/` | Owns the benchmark data contract, committed public competition files, dataset loading, project id, and project `EvaluationSpec` policy. | Only when intentionally changing the benchmark project |
 | Candidate experiment | `projects/synthetic_regression/experiments/candidate_model.py` | Owns the editable sklearn-compatible candidate regressor, including model-specific preprocessing, feature engineering, model structure, and `__str__` rendering. | Yes |
 
@@ -75,10 +75,12 @@ Run `task verify-experiment -- <run_id>` to check candidate/source provenance fo
 a completed run. Without a run id, the task verifies the latest successful
 `synthetic_regression` run.
 
-The fixed harness always writes `interpretability_packet.json`. To replace the
-static fallback score with an agent judgment, create a judgment JSON matching
-the packet schema, apply it with `apply_interpretability_judgment()`, then keep
-the generated `interpretability_judgment.json`,
-`interpretability_judgment_audit.json`, leaderboard update, report update, and
-journal update together as the audit record. Only journal Markdown files are
-tracked by git; generated result artifacts remain ignored.
+The fixed harness always writes `interpretability_packet.json`, but
+interpretability remains `pending_agent_judgment` until an agent judgment is
+applied. Create a judgment JSON matching the packet schema, apply it with
+`apply_interpretability_judgment()`, then keep the generated
+`interpretability_judgment.json`, `interpretability_judgment_audit.json`,
+leaderboard update, report update, and journal update together as the audit
+record. `task verify-experiment -- <run_id>` fails until the judgment has been
+applied. Only journal Markdown files are tracked by git; generated result
+artifacts remain ignored.
