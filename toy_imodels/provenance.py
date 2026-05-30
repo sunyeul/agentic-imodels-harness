@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -108,6 +109,7 @@ def write_experiment_journal(
         f"- Primary metric: {primary_metric} "
         f"({primary_metric_direction}; {metric_direction})"
     )
+    interpretability_score_text = _format_optional_score(interpretability_score)
     path.write_text(
         "\n".join(
             [
@@ -134,7 +136,7 @@ def write_experiment_journal(
                 "",
                 f"- {primary_metric}: {primary_metric_value:.6f}",
                 f"- Interpretability status: {interpretability_status}",
-                f"- Interpretability score: {interpretability_score:.4f}",
+                f"- Interpretability score: {interpretability_score_text}",
                 "",
                 "## Artifacts",
                 "",
@@ -154,6 +156,12 @@ def write_experiment_journal(
         )
     )
     return path
+
+
+def _format_optional_score(score: float) -> str:
+    if math.isnan(score):
+        return "NaN"
+    return f"{score:.4f}"
 
 
 def update_journal_interpretability_judgment(

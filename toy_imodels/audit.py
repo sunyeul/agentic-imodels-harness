@@ -57,6 +57,7 @@ def verify_experiment_run(
             project_id=str(target["project_id"]),
         ),
         _check_journal(results_path, target_run_id),
+        _check_interpretability_judgment(results_path, target),
     ]
     return findings
 
@@ -269,6 +270,84 @@ def _check_journal(results_dir: Path, run_id: str) -> AuditFinding:
             "missing journal fields: " + ", ".join(missing),
         )
     return AuditFinding("journal", True, str(journal_path))
+
+
+def _check_interpretability_judgment(
+    results_dir: Path, target: pd.Series
+) -> AuditFinding:
+    run_id = str(target["run_id"])
+    score = target.get("interpretability_score", "")
+    if pd.isna(score):
+        return AuditFinding(
+            "interpretability_judgment",
+            False,
+            f"run_id {run_id} is pending agent judgment",
+        )
+    try:
+        float(score)
+    except (TypeError, ValueError):
+        return AuditFinding(
+            "interpretability_judgment",
+            False,
+            f"run_id {run_id} has non-numeric interpretability_score {score!r}",
+        )
+
+    judgment_path_value = target.get("interpretability_judgment_path", "")
+    audit_path_value = target.get("interpretability_audit_path", "")
+    if not isinstance(judgment_path_value, str) or not judgment_path_value.strip():
+        return AuditFinding(
+            "interpretability_judgment",
+            False,
+            f"run_id {run_id} has no interpretability_judgment_path",
+        )
+    if not isinstance(audit_path_value, str) or not audit_path_value.strip():
+        return AuditFinding(
+            "interpretability_judgment",
+            False,
+            f"run_id {run_id} has no interpretability_audit_path",
+        )
+
+    judgment_path = Path(judgment_path_value)
+    audit_path = Path(audit_path_value)
+    if not judgment_path.exists():
+        return AuditFinding(
+            "interpretability_judgment", False, f"missing {judgment_path}"
+        )
+    if not audit_path.exists():
+        return AuditFinding("interpretability_judgment", False, f"missing {audit_path}")
+
+    audit = json.loads(audit_path.read_text())
+    if "static_fallback_score" in audit:
+        return AuditFinding(
+            "interpretability_judgment",
+            False,
+            f"{audit_path} still records static_fallback_score",
+        )
+
+    report_path_value = target.get("report_path", "")
+    report_text = Path(str(report_path_value)).read_text() if report_path_value else ""
+    journal_path = (
+        results_dir.resolve().parent / "experiments" / "journal" / f"{run_id}.md"
+    )
+    journal_text = journal_path.read_text() if journal_path.exists() else ""
+    if "Agent-judged interpretability score:" not in report_text:
+        return AuditFinding(
+            "interpretability_judgment",
+            False,
+            f"report for run_id {run_id} has no agent-judged score",
+        )
+    if "Interpretability status: agent_judged" not in journal_text:
+        return AuditFinding(
+            "interpretability_judgment",
+            False,
+            f"journal for run_id {run_id} has no agent_judged status",
+        )
+
+    return AuditFinding(
+        "interpretability_judgment",
+        True,
+        f"{judgment_path} with audit {audit_path}",
+    )
 
 
 if __name__ == "__main__":

@@ -22,7 +22,6 @@ def write_run_report(
     cv_random_state: int | None,
     cv_description: str,
     metric_lines: list[str],
-    interpretability_score: float,
     model_string: str,
     next_candidate_path: str,
     fold_metrics_path: str | Path | None = None,
@@ -65,7 +64,8 @@ def write_run_report(
                 "## Metrics",
                 "",
                 *metric_lines,
-                f"- Static interpretability score: {interpretability_score:.4f}",
+                "- Interpretability status: pending_agent_judgment",
+                "- Interpretability score: NaN",
                 *artifact_section,
                 "",
                 "## Model string",
@@ -96,14 +96,25 @@ def apply_interpretability_judgment_to_report(
 ) -> Path:
     path = Path(report_path)
     report_text = path.read_text()
-    static_line = "- Static interpretability score:"
+    pending_status_line = "- Interpretability status:"
+    pending_score_line = "- Interpretability score:"
     updated_line = (
         f"- Agent-judged interpretability score: {interpretability_score:.4f}"
     )
-    lines = [
-        updated_line if line.startswith(static_line) else line
-        for line in report_text.splitlines()
-    ]
+    lines = []
+    score_line_written = False
+    for line in report_text.splitlines():
+        if line.startswith(pending_status_line):
+            lines.append("- Interpretability status: agent_judged")
+        elif line.startswith(pending_score_line) or line.startswith(
+            "- Static interpretability score:"
+        ):
+            lines.append(updated_line)
+            score_line_written = True
+        else:
+            lines.append(line)
+    if not score_line_written:
+        lines.append(updated_line)
 
     if INTERPRETABILITY_JUDGMENT_HEADING in lines:
         start = lines.index(INTERPRETABILITY_JUDGMENT_HEADING)

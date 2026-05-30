@@ -18,7 +18,6 @@ from toy_imodels.core.candidate import BaseCandidateModel
 from toy_imodels.core.project import Project
 from toy_imodels.interpretability import (
     audit_interpretability_judgment,
-    evaluate_interpretability,
     validate_interpretability_judgment,
     write_interpretability_packet,
 )
@@ -153,9 +152,7 @@ def _reject_candidate_leakage_source(
 ) -> None:
     source = _candidate_source_before_import(module_name, import_path=import_path)
     forbidden_hits = [
-        fragment
-        for fragment in forbidden_source_fragments
-        if fragment in source
+        fragment for fragment in forbidden_source_fragments if fragment in source
     ]
     if forbidden_hits:
         raise CandidateContractError(
@@ -414,8 +411,7 @@ def run_experiment(
         )
         model_string = str(candidate)
 
-        interpretability = evaluate_interpretability(model_string)
-        interp_score = interpretability.score
+        interp_score = float("nan")
         write_interpretability_packet(
             runs_dir,
             run_id=run_id,
@@ -443,7 +439,6 @@ def run_experiment(
             cv_random_state=cv_random_state,
             cv_description=str(spec_metadata["cv_description"]),
             metric_lines=evaluation_spec.report_metric_lines(cv_metrics),
-            interpretability_score=interp_score,
             model_string=model_string,
             fold_metrics_path=fold_metrics_path,
             diagnostics_path=diagnostics_path,
@@ -519,7 +514,7 @@ def run_experiment(
             report_path=report_path,
             run_metadata_path=run_metadata_path,
             candidate_snapshot_path=candidate_snapshot_path,
-            interpretability_status="static_fallback",
+            interpretability_status="pending_agent_judgment",
             interpretability_score=interp_score,
             baseline_run_id=baseline_run_id,
         )

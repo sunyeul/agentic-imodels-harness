@@ -1,27 +1,8 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
-
-USEFUL_TERMS = {
-    "equation",
-    "feature",
-    "features",
-    "coefficient",
-    "coefficients",
-    "intercept",
-    "ridge",
-    "linear",
-    "hinge",
-    "interaction",
-    "x0",
-    "x1",
-    "x2",
-    "target",
-    "prediction",
-}
 
 RUBRIC_VERSION = "agentic-imodels-agent-facing-v1"
 
@@ -122,23 +103,6 @@ AUDIT_EVIDENCE_TERMS = {
     ),
     "structure": ("linear", "ridge", "tree", "rule", "interaction", "structure"),
 }
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class InterpretabilityResult:
-    """Harness-owned interpretability result."""
-
-    score: float
-
-    def __post_init__(self) -> None:
-        if not 0.0 <= self.score <= 1.0:
-            raise ValueError("InterpretabilityResult.score must be between 0 and 1")
-
-
-def evaluate_interpretability(model_string: str) -> InterpretabilityResult:
-    """Evaluate the candidate's agent-readable model representation."""
-
-    return InterpretabilityResult(score=score_model_string_static(model_string))
 
 
 def build_interpretability_packet(
@@ -284,7 +248,6 @@ def audit_interpretability_judgment(
     if not isinstance(model_string, str):
         model_string = ""
     model_text = model_string.lower()
-    static_score = score_model_string_static(model_string)
     judged_score = float(judgment["interpretability_score"])
     warnings: list[str] = []
     dimension_audits: dict[str, dict[str, object]] = {}
@@ -293,11 +256,6 @@ def audit_interpretability_judgment(
         warnings.append("packet run_id does not match judgment run_id")
     if packet.get("rubric_version") != judgment.get("rubric_version"):
         warnings.append("packet rubric_version does not match judgment rubric_version")
-    if round(judged_score - static_score, 4) > 0.35:
-        warnings.append(
-            "judged score is much higher than the static fallback score; "
-            "review calibration"
-        )
 
     dimension_scores = cast(
         dict[str, dict[str, float | str]], judgment["dimension_scores"]
@@ -325,28 +283,6 @@ def audit_interpretability_judgment(
         "rubric_version": judgment["rubric_version"],
         "audit_status": "review" if warnings else "pass",
         "warnings": warnings,
-        "static_fallback_score": static_score,
         "judged_score": judged_score,
         "dimension_audits": dimension_audits,
     }
-
-
-def score_model_string_static(model_string: str) -> float:
-    text = (model_string or "").strip().lower()
-    if not text:
-        return 0.0
-
-    length_score = min(len(text) / 240.0, 1.0)
-    term_hits = sum(1 for term in USEFUL_TERMS if term in text)
-    term_score = min(term_hits / 8.0, 1.0)
-    symbol_score = 0.0
-    if "=" in text:
-        symbol_score += 0.25
-    if "+" in text or "-" in text:
-        symbol_score += 0.25
-    if any(f"x{i}" in text for i in range(15)):
-        symbol_score += 0.25
-    if any(char.isdigit() for char in text):
-        symbol_score += 0.25
-
-    return round(0.25 * length_score + 0.5 * term_score + 0.25 * symbol_score, 4)
