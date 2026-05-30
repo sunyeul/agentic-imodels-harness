@@ -16,7 +16,7 @@ from projects.synthetic_regression.datasets import DEFAULT_DATA_DIR, FEATURE_COL
 from projects.synthetic_regression.project import DEFAULT_RESULTS_DIR
 from toy_imodels.audit import verify_experiment_run
 from toy_imodels.core.evaluation import apply_interpretability_judgment, run_experiment
-from toy_imodels.core.project import Project
+from toy_imodels.core.project import EvaluationData, Project
 from toy_imodels.interpretability import (
     RUBRIC_VERSION,
     audit_interpretability_judgment,
@@ -37,6 +37,48 @@ def _copy_competition_data(tmp_path: Path) -> Path:
     return data_dir
 
 
+def _unused_submission_writer(
+    _path: Path, _run_id: str, _data: EvaluationData, _predictions: Any
+) -> Path:
+    pytest.fail("write_submission should not be called")
+
+
+class AccuracyEvaluationSpec(EvaluationSpec):
+    def __init__(self):
+        super().__init__(
+            name="accuracy",
+            primary_metric="accuracy",
+            primary_metric_direction="maximize",
+            cv_strategy=CVStrategy(
+                name="kfold_3_no_shuffle",
+                n_splits=3,
+                random_state=None,
+                description="3-fold KFold for classification testing.",
+                splitter=KFold(n_splits=3, shuffle=False),
+            ),
+        )
+
+    def score_predictions(self, y_true, y_pred):
+        return {
+            "accuracy": float(
+                (pd.Series(y_pred).to_numpy() == y_true.to_numpy()).mean()
+            )
+        }
+
+    def aggregate_fold_scores(self, fold_scores):
+        values = [score["accuracy"] for score in fold_scores]
+        return {"accuracy": sum(values) / len(values)}
+
+
+def _write_fake_submission(
+    submissions_dir: Path, run_id: str, _data: EvaluationData, predictions: Any
+) -> Path:
+    submissions_dir.mkdir(parents=True, exist_ok=True)
+    path = submissions_dir / f"{run_id}.txt"
+    path.write_text(",".join(str(int(value)) for value in predictions) + "\n")
+    return path
+
+
 def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     project = synthetic_regression_project(
         data_dir=_copy_competition_data(tmp_path),
@@ -51,15 +93,17 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert result.project_id == "synthetic_regression"
     assert result.candidate_module == DEFAULT_CANDIDATE_MODULE
     assert Path(result.fold_metrics_path).exists()
-    assert Path(result.residual_diagnostics_path).exists()
+    diagnostics_path = result.artifact_paths["diagnostics_path"]
+    submission_path = result.artifact_paths["submission_path"]
+    assert Path(diagnostics_path).exists()
     assert Path(result.run_metadata_path).exists()
     assert Path(result.candidate_snapshot_path).exists()
-    assert result.cv_rmse_mean > 0
-    assert result.cv_rmse_std >= 0
-    assert result.cv_mae_mean > 0
-    assert result.cv_mae_std >= 0
-    assert -1 <= result.cv_r2_mean <= 1
-    assert result.cv_r2_std >= 0
+    assert result.result_metrics["cv_rmse_mean"] > 0
+    assert result.result_metrics["cv_rmse_std"] >= 0
+    assert result.result_metrics["cv_mae_mean"] > 0
+    assert result.result_metrics["cv_mae_std"] >= 0
+    assert -1 <= result.result_metrics["cv_r2_mean"] <= 1
+    assert result.result_metrics["cv_r2_std"] >= 0
     assert result.interpretability_score > 0
 
     leaderboard = pd.read_csv(tmp_path / "results" / "leaderboard.csv")
@@ -84,7 +128,7 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
         "fold_metrics_path",
         "run_metadata_path",
         "candidate_snapshot_path",
-        "residual_diagnostics_path",
+        "diagnostics_path",
         "error_traceback_path",
     ):
         assert column in leaderboard.columns
@@ -99,15 +143,13 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert leaderboard.loc[0, "cv_n_splits"] == 5
     assert leaderboard.loc[0, "cv_random_state"] == 42
     assert leaderboard.loc[0, "fold_metrics_path"] == result.fold_metrics_path
-    assert leaderboard.loc[0, "residual_diagnostics_path"] == (
-        result.residual_diagnostics_path
-    )
+    assert leaderboard.loc[0, "diagnostics_path"] == diagnostics_path
     assert leaderboard.loc[0, "run_metadata_path"] == result.run_metadata_path
     assert leaderboard.loc[0, "candidate_snapshot_path"] == (
         result.candidate_snapshot_path
     )
 
-    assert Path(result.submission_path).exists()
+    assert Path(submission_path).exists()
     assert Path(result.report_path).exists()
     report_text = Path(result.report_path).read_text()
     assert "Project: synthetic_regression" in report_text
@@ -119,7 +161,7 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert "cv_rmse_mean (primary)" in report_text
     assert "Run artifacts" in report_text
     assert "Fold metrics:" in report_text
-    assert "Residual diagnostics:" in report_text
+    assert "Diagnostics:" in report_text
     assert "Run metadata:" in report_text
     assert "Candidate snapshot:" in report_text
     assert "Model string" in report_text
@@ -152,18 +194,14 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert run_metadata["spec"]["primary_metric_direction"] == "minimize"
     assert run_metadata["spec"]["cv_strategy_name"] == "kfold_5_shuffle_seed42"
     assert run_metadata["artifacts"]["report_path"] == result.report_path
-    assert run_metadata["artifacts"]["submission_path"] == result.submission_path
+    assert run_metadata["artifacts"]["submission_path"] == submission_path
     assert run_metadata["artifacts"]["fold_metrics_path"] == (result.fold_metrics_path)
-    assert run_metadata["artifacts"]["residual_diagnostics_path"] == (
-        result.residual_diagnostics_path
-    )
+    assert run_metadata["artifacts"]["diagnostics_path"] == diagnostics_path
     assert run_metadata["artifacts"]["candidate_snapshot_path"] == (
         result.candidate_snapshot_path
     )
 
-    residual_diagnostics = json.loads(
-        Path(result.residual_diagnostics_path).read_text()
-    )
+    residual_diagnostics = json.loads(Path(diagnostics_path).read_text())
     assert residual_diagnostics["run_id"] == "test-run"
     assert residual_diagnostics["project_id"] == "synthetic_regression"
     assert "oracle" in residual_diagnostics["diagnostic_note"]
@@ -257,7 +295,7 @@ def test_public_test_data_does_not_include_targets(tmp_path):
     assert {"id", *FEATURE_COLUMNS} == set(test.columns)
 
 
-def test_load_competition_data_requires_public_files(tmp_path):
+def test_load_evaluation_data_requires_public_files(tmp_path):
     project = synthetic_regression_project(
         data_dir=tmp_path / "missing-data",
         results_dir=tmp_path / "results",
@@ -283,9 +321,9 @@ def test_candidate_visible_project_code_does_not_include_generator_oracle():
 
 
 def test_candidate_model_runtime_does_not_perform_io(monkeypatch):
-    competition_data = synthetic_regression_project().load_data(DEFAULT_DATA_DIR)
-    x = competition_data.x_train.head(32)
-    y = competition_data.y_train.head(32)
+    evaluation_data = synthetic_regression_project().load_data(DEFAULT_DATA_DIR)
+    x = evaluation_data.x_labeled.head(32)
+    y = evaluation_data.y_labeled.head(32)
 
     def forbid_io(*args: Any, **kwargs: Any) -> None:
         raise AssertionError("Candidate runtime must not perform filesystem I/O")
@@ -342,12 +380,7 @@ def test_run_experiment_cv_metrics_are_deterministic(tmp_path):
         run_id="deterministic-two",
     )
 
-    assert second.cv_rmse_mean == first.cv_rmse_mean
-    assert second.cv_rmse_std == first.cv_rmse_std
-    assert second.cv_mae_mean == first.cv_mae_mean
-    assert second.cv_mae_std == first.cv_mae_std
-    assert second.cv_r2_mean == first.cv_r2_mean
-    assert second.cv_r2_std == first.cv_r2_std
+    assert second.result_metrics == first.result_metrics
 
 
 def test_default_evaluation_spec_records_default_cv_metadata():
@@ -384,6 +417,9 @@ def test_project_rejects_invalid_project_id(project_id):
             data_dir=Path("data"),
             results_dir=Path("results"),
             load_data=lambda path: pytest.fail("load_data should not be called"),
+            protected_paths=(),
+            forbidden_candidate_source_fragments=(),
+            write_submission=_unused_submission_writer,
         )
 
 
@@ -396,6 +432,9 @@ def test_project_package_name_must_end_with_project_id():
             data_dir=Path("data"),
             results_dir=Path("results"),
             load_data=lambda path: pytest.fail("load_data should not be called"),
+            protected_paths=(),
+            forbidden_candidate_source_fragments=(),
+            write_submission=_unused_submission_writer,
         )
 
 
@@ -415,7 +454,7 @@ def test_evaluation_spec_rejects_unknown_primary_metric_direction():
         )
 
 
-class CountingEvaluationSpec(EvaluationSpec):
+class CountingEvaluationSpec(DefaultEvaluationSpec):
     score_calls: int
     aggregate_calls: int
 
@@ -492,6 +531,75 @@ def test_run_experiment_uses_custom_project_evaluation_spec(tmp_path):
 
     run_metadata = json.loads(Path(result.run_metadata_path).read_text())
     assert run_metadata["spec"]["primary_metric_direction"] == "minimize"
+
+
+def test_run_experiment_supports_non_regression_project_policy(tmp_path):
+    package_dir = tmp_path / "fake_project" / "experiments"
+    package_dir.mkdir(parents=True)
+    (tmp_path / "fake_project" / "__init__.py").write_text("")
+    (package_dir / "__init__.py").write_text("")
+    (package_dir / "candidate_model.py").write_text(
+        textwrap.dedent(
+            """
+            from toy_imodels.core.candidate import BaseCandidateModel
+
+
+            class CandidateModel(BaseCandidateModel):
+                model_name = "threshold_classifier"
+                notes = "Predicts class labels from x0 threshold."
+
+                def fit(self, X, y):
+                    return self
+
+                def predict(self, X):
+                    return (X["x0"] > 0.5).astype(int)
+
+                def __str__(self):
+                    return "if x0 > 0.5 then class 1 else class 0"
+            """
+        )
+    )
+    data = EvaluationData(
+        x_labeled=pd.DataFrame({"x0": [0.0, 0.2, 0.7, 0.9, 0.1, 0.8]}),
+        y_labeled=pd.Series([0, 0, 1, 1, 0, 1]),
+        x_test=pd.DataFrame({"x0": [0.3, 0.6]}),
+        feature_columns=["x0"],
+    )
+    project = Project(
+        project_id="fake_project",
+        package_name="fake_project",
+        spec=AccuracyEvaluationSpec(),
+        data_dir=tmp_path / "data",
+        results_dir=tmp_path / "results",
+        load_data=lambda _path: data,
+        protected_paths=("fake_project/spec.py",),
+        forbidden_candidate_source_fragments=("NEVER_USE_THIS_FRAGMENT",),
+        write_submission=_write_fake_submission,
+        write_diagnostics=None,
+    )
+
+    result = run_experiment(
+        project=project,
+        run_id="accuracy-run",
+        import_path=[tmp_path],
+    )
+
+    assert result.status == "success"
+    assert result.primary_metric == "accuracy"
+    assert result.primary_metric_direction == "maximize"
+    assert result.metrics == {"accuracy": 1.0}
+    assert result.result_metrics == {"accuracy": 1.0}
+    assert Path(result.artifact_paths["submission_path"]).read_text() == "0,1\n"
+    assert "diagnostics_path" not in result.artifact_paths
+
+    leaderboard = pd.read_csv(tmp_path / "results" / "leaderboard.csv")
+    assert leaderboard.loc[0, "accuracy"] == 1.0
+    assert "cv_rmse_mean" not in leaderboard.columns
+    assert "diagnostics_path" not in leaderboard.columns
+
+    report_text = Path(result.report_path).read_text()
+    assert "accuracy (primary): 1.000000" in report_text
+    assert "Diagnostics:" not in report_text
 
 
 def test_interpretability_score_is_fixed_harness_evaluator(tmp_path):
@@ -727,7 +835,7 @@ def test_verify_experiment_run_fails_on_protected_path_drift(tmp_path, monkeypat
     metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
     monkeypatch.setattr(
         "toy_imodels.audit.protected_paths_changed_since_commit",
-        lambda git_commit, root=".": ["toy_imodels/core/evaluation.py"],
+        lambda git_commit, *, paths, root=".": list(paths),
     )
 
     findings = verify_experiment_run(
@@ -740,7 +848,7 @@ def test_verify_experiment_run_fails_on_protected_path_drift(tmp_path, monkeypat
         finding for finding in findings if finding.check == "protected_paths"
     )
     assert not protected.ok
-    assert "toy_imodels/core/evaluation.py" in protected.detail
+    assert "toy_imodels/" in protected.detail
 
 
 def test_verify_experiment_run_fails_without_comparable_baseline(tmp_path):
@@ -864,16 +972,13 @@ def test_project_data_dataclass_validates_feature_columns(tmp_path):
         data_dir=_copy_competition_data(tmp_path),
         results_dir=tmp_path / "results",
     )
-    competition_data = project.load_data(project.data_dir)
+    evaluation_data = project.load_data(project.data_dir)
     with pytest.raises(ValueError, match="missing feature columns"):
-        competition_data.__class__(
-            x_train=competition_data.x_train.drop(columns=["x0"]),
-            y_train=competition_data.y_train,
-            x_valid=competition_data.x_valid,
-            y_valid=competition_data.y_valid,
-            x_test=competition_data.x_test,
-            feature_columns=competition_data.feature_columns,
-            target_column=competition_data.target_column,
+        evaluation_data.__class__(
+            x_labeled=evaluation_data.x_labeled.drop(columns=["x0"]),
+            y_labeled=evaluation_data.y_labeled,
+            x_test=evaluation_data.x_test,
+            feature_columns=evaluation_data.feature_columns,
         )
 
 
@@ -989,6 +1094,67 @@ def test_run_experiment_rejects_candidate_dataset_loader_references(tmp_path):
     assert leaderboard.loc[0, "run_id"] == "leaky-candidate"
     assert leaderboard.loc[0, "status"] == "contract_error"
     assert "DEFAULT_DATA_DIR" in leaderboard.loc[0, "error"]
+
+
+def test_run_experiment_uses_project_forbidden_source_fragments(tmp_path):
+    module_dir = tmp_path / "project_policy_candidate_pkg"
+    module_dir.mkdir()
+    (module_dir / "__init__.py").write_text("")
+    (module_dir / "leaky.py").write_text(
+        textwrap.dedent(
+            """
+            from toy_imodels.core.candidate import BaseCandidateModel
+
+            PROJECT_SECRET_TOKEN = "do not use"
+
+
+            class CandidateModel(BaseCandidateModel):
+                def fit(self, X, y):
+                    return self
+
+                def predict(self, X):
+                    return [0.0] * len(X)
+
+                def __str__(self):
+                    return PROJECT_SECRET_TOKEN
+            """
+        )
+    )
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    project = Project(
+        project_id=project.project_id,
+        package_name=project.package_name,
+        spec=project.spec,
+        data_dir=project.data_dir,
+        results_dir=project.results_dir,
+        load_data=project.load_data,
+        protected_paths=project.protected_paths,
+        forbidden_candidate_source_fragments=("PROJECT_SECRET_TOKEN",),
+        write_submission=project.write_submission,
+        write_diagnostics=project.write_diagnostics,
+    )
+
+    with pytest.raises(RuntimeError, match="PROJECT_SECRET_TOKEN"):
+        run_experiment(
+            project=project,
+            candidate_module="project_policy_candidate_pkg.leaky",
+            run_id="project-policy-leak",
+            import_path=[tmp_path],
+        )
+
+
+def test_fixed_harness_source_has_no_synthetic_project_policy():
+    source_text = "\n".join(
+        path.read_text() for path in Path("toy_imodels").rglob("*.py")
+    )
+
+    assert "synthetic_regression" not in source_text
+    assert "projects/synthetic_regression" not in source_text
+    assert "projects.synthetic_regression" not in source_text
+    assert "cv_rmse" not in source_text
 
 
 def test_toy_experiment_skill_mentions_pdca_run_artifacts():
