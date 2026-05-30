@@ -35,3 +35,9 @@ projects/*/results/submissions/*
 !projects/*/results/submissions/
 !projects/*/results/runs/.gitkeep
 !projects/*/results/submissions/.gitkeep
+
+# Lightweight experiment audit journals
+projects/*/experiments/journal/*
+!projects/*/experiments/journal/
+!projects/*/experiments/journal/.gitkeep
+!projects/*/experiments/journal/*.md

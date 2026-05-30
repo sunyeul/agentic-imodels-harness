@@ -31,6 +31,11 @@ tasks:
     cmds:
       - uv run --extra dev pytest {{.CLI_ARGS}}
 
+  verify-experiment:
+    desc: Verifies experiment audit provenance for a run (defaults to latest success)
+    cmds:
+      - uv run python -m toy_imodels.audit {{.CLI_ARGS}}
+
   check:
     desc: Runs all quality checks (format, lint, typecheck, test)
     cmds:

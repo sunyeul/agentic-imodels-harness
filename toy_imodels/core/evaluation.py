@@ -23,6 +23,13 @@ from toy_imodels.interpretability import (
     write_interpretability_packet,
 )
 from toy_imodels.leaderboard import append_result, read_leaderboard, update_result
+from toy_imodels.provenance import (
+    GitProvenance,
+    collect_git_provenance,
+    comparable_baseline_run_id,
+    update_journal_interpretability_judgment,
+    write_experiment_journal,
+)
 from toy_imodels.reports import (
     apply_interpretability_judgment_to_report,
     write_run_report,
@@ -395,6 +402,7 @@ def _write_run_metadata(
     project_id: str,
     candidate_module: str,
     candidate_source_sha256: str,
+    git_provenance: GitProvenance,
     spec_metadata: dict[str, object],
     report_path: Path,
     submission_path: Path,
@@ -410,6 +418,12 @@ def _write_run_metadata(
             "project_id": project_id,
             "candidate_module": candidate_module,
             "candidate_source_sha256": candidate_source_sha256,
+            "git_commit": git_provenance.git_commit,
+            "git_parent_commit": git_provenance.git_parent_commit,
+            "git_dirty": git_provenance.git_dirty,
+            "spec_name": spec_metadata["spec_name"],
+            "primary_metric": spec_metadata["primary_metric"],
+            "primary_metric_direction": spec_metadata["primary_metric_direction"],
             "spec": {
                 "spec_name": spec_metadata["spec_name"],
                 "primary_metric": spec_metadata["primary_metric"],
@@ -450,6 +464,7 @@ def run_experiment(
     cv_n_splits = cast(int, spec_metadata["cv_n_splits"])
     cv_random_state = cast(int | None, spec_metadata["cv_random_state"])
     timestamp = datetime.now(timezone.utc).isoformat()
+    git_provenance = collect_git_provenance()
     results_path = Path(project.results_dir)
     submissions_dir = results_path / "submissions"
     runs_dir = results_path / "runs" / run_id
@@ -543,6 +558,7 @@ def run_experiment(
             project_id=project.project_id,
             candidate_module=candidate_module,
             candidate_source_sha256=candidate_source_sha256,
+            git_provenance=git_provenance,
             spec_metadata=spec_metadata,
             report_path=report_path,
             submission_path=submission_path,
@@ -586,6 +602,33 @@ def run_experiment(
                 spec_metadata=spec_metadata,
                 leaderboard_metrics=leaderboard_metrics,
             ),
+        )
+        leaderboard = read_leaderboard(results_path)
+        baseline_run_id = comparable_baseline_run_id(
+            leaderboard,
+            project_id=project.project_id,
+            spec_name=str(spec_metadata["spec_name"]),
+            primary_metric=str(spec_metadata["primary_metric"]),
+            primary_metric_direction=str(spec_metadata["primary_metric_direction"]),
+        )
+        write_experiment_journal(
+            results_dir=results_path,
+            run_id=run_id,
+            project_id=project.project_id,
+            model_name=result.model_name,
+            notes=result.notes,
+            spec_name=result.spec_name,
+            primary_metric=result.primary_metric,
+            primary_metric_direction=result.primary_metric_direction,
+            primary_metric_value=cv_metrics.get(result.primary_metric, float("nan")),
+            candidate_source_sha256=candidate_source_sha256,
+            git_provenance=git_provenance,
+            report_path=report_path,
+            run_metadata_path=run_metadata_path,
+            candidate_snapshot_path=candidate_snapshot_path,
+            interpretability_status="static_fallback",
+            interpretability_score=interp_score,
+            baseline_run_id=baseline_run_id,
         )
         return result
     except CandidateContractError as exc:
@@ -693,5 +736,13 @@ def apply_interpretability_judgment(
         dimension_scores=cast(
             dict[str, dict[str, object]], normalized["dimension_scores"]
         ),
+    )
+    update_journal_interpretability_judgment(
+        results_dir=results_dir,
+        run_id=run_id,
+        interpretability_score=float(normalized["interpretability_score"]),
+        judgment_path=normalized_path,
+        audit_path=audit_path,
+        audit_status=str(audit["audit_status"]),
     )
     return normalized_path

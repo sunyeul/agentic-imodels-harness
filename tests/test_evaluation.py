@@ -14,6 +14,7 @@ from projects.synthetic_regression import (
 )
 from projects.synthetic_regression.datasets import DEFAULT_DATA_DIR, FEATURE_COLUMNS
 from projects.synthetic_regression.project import DEFAULT_RESULTS_DIR
+from toy_imodels.audit import verify_experiment_run
 from toy_imodels.core.evaluation import apply_interpretability_judgment, run_experiment
 from toy_imodels.core.project import Project
 from toy_imodels.interpretability import (
@@ -24,6 +25,7 @@ from toy_imodels.interpretability import (
     validate_interpretability_judgment,
 )
 from toy_imodels.leaderboard import append_result, update_result
+from toy_imodels.provenance import sha256_file
 from toy_imodels.spec import CVStrategy, EvaluationSpec
 
 DEFAULT_CANDIDATE_MODULE = "projects.synthetic_regression.experiments.candidate_model"
@@ -136,6 +138,15 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert run_metadata["project_id"] == "synthetic_regression"
     assert run_metadata["candidate_module"] == DEFAULT_CANDIDATE_MODULE
     assert run_metadata["candidate_source_sha256"]
+    assert run_metadata["candidate_source_sha256"] == sha256_file(
+        result.candidate_snapshot_path
+    )
+    assert "git_commit" in run_metadata
+    assert "git_parent_commit" in run_metadata
+    assert isinstance(run_metadata["git_dirty"], bool)
+    assert run_metadata["spec_name"] == "default"
+    assert run_metadata["primary_metric"] == "cv_rmse_mean"
+    assert run_metadata["primary_metric_direction"] == "minimize"
     assert run_metadata["spec"]["spec_name"] == "default"
     assert run_metadata["spec"]["primary_metric"] == "cv_rmse_mean"
     assert run_metadata["spec"]["primary_metric_direction"] == "minimize"
@@ -174,6 +185,19 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
 
     candidate_snapshot = Path(result.candidate_snapshot_path).read_text()
     assert "class CandidateModel" in candidate_snapshot
+
+    journal_path = tmp_path / "experiments" / "journal" / "test-run.md"
+    assert journal_path.exists()
+    journal_text = journal_path.read_text()
+    assert "# Experiment Journal: test-run" in journal_text
+    assert "Commit:" in journal_text
+    candidate_hash_line = f"Candidate SHA256: {run_metadata['candidate_source_sha256']}"
+    assert candidate_hash_line in journal_text
+    assert "Spec: default" in journal_text
+    assert "Primary metric: cv_rmse_mean" in journal_text
+    assert "Comparable baseline: test-run" in journal_text
+    assert "Interpretability status: static_fallback" in journal_text
+    assert "Next Action" in journal_text
 
     packet_path = (
         tmp_path / "results" / "runs" / "test-run" / ("interpretability_packet.json")
@@ -569,6 +593,13 @@ def test_apply_interpretability_judgment_updates_leaderboard_and_report(tmp_path
     assert "Audit status:" in report_text
     assert "prediction: 1.0000" in report_text
 
+    journal_text = (tmp_path / "experiments" / "journal" / "judged-run.md").read_text()
+    assert "Interpretability status: agent_judged" in journal_text
+    assert "Interpretability score: 0.7000" in journal_text
+    assert "Applied Interpretability Judgment" in journal_text
+    assert f"Judgment artifact: {normalized_path}" in journal_text
+    assert f"Audit artifact: {audit_path}" in journal_text
+
 
 def test_update_result_can_target_project_scoped_duplicate_run_ids(tmp_path):
     results_dir = tmp_path / "results"
@@ -614,6 +645,126 @@ def test_update_result_can_target_project_scoped_duplicate_run_ids(tmp_path):
     ].iloc[0]
     assert first_score == 0.1
     assert second_score == 0.9
+
+
+def test_verify_experiment_run_passes_for_fresh_successful_run(tmp_path):
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    run_experiment(project=project, run_id="audit-pass")
+
+    findings = verify_experiment_run(
+        results_dir=tmp_path / "results",
+        run_id="audit-pass",
+        project=project,
+    )
+
+    assert all(finding.ok for finding in findings)
+    assert {finding.check for finding in findings} == {
+        "metadata_present",
+        "snapshot_hash",
+        "active_candidate_hash",
+        "active_spec",
+        "protected_paths",
+        "comparable_baseline",
+        "journal",
+    }
+
+
+def test_verify_experiment_run_fails_when_snapshot_hash_differs(tmp_path):
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    result = run_experiment(project=project, run_id="audit-bad-snapshot")
+    Path(result.candidate_snapshot_path).write_text("# tampered\n")
+
+    findings = verify_experiment_run(
+        results_dir=tmp_path / "results",
+        run_id="audit-bad-snapshot",
+        project=project,
+    )
+
+    snapshot = next(finding for finding in findings if finding.check == "snapshot_hash")
+    assert not snapshot.ok
+    assert "does not match metadata" in snapshot.detail
+
+
+def test_verify_experiment_run_fails_when_active_candidate_hash_differs(tmp_path):
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    result = run_experiment(project=project, run_id="audit-bad-candidate")
+    metadata_path = Path(result.run_metadata_path)
+    metadata = json.loads(metadata_path.read_text())
+    metadata["candidate_source_sha256"] = "0" * 64
+    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
+
+    findings = verify_experiment_run(
+        results_dir=tmp_path / "results",
+        run_id="audit-bad-candidate",
+        project=project,
+    )
+
+    active = next(
+        finding for finding in findings if finding.check == "active_candidate_hash"
+    )
+    assert not active.ok
+    assert "does not match run" in active.detail
+
+
+def test_verify_experiment_run_fails_on_protected_path_drift(tmp_path, monkeypatch):
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    result = run_experiment(project=project, run_id="audit-protected-drift")
+    metadata_path = Path(result.run_metadata_path)
+    metadata = json.loads(metadata_path.read_text())
+    metadata["git_dirty"] = False
+    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
+    monkeypatch.setattr(
+        "toy_imodels.audit.protected_paths_changed_since_commit",
+        lambda git_commit, root=".": ["toy_imodels/core/evaluation.py"],
+    )
+
+    findings = verify_experiment_run(
+        results_dir=tmp_path / "results",
+        run_id="audit-protected-drift",
+        project=project,
+    )
+
+    protected = next(
+        finding for finding in findings if finding.check == "protected_paths"
+    )
+    assert not protected.ok
+    assert "toy_imodels/core/evaluation.py" in protected.detail
+
+
+def test_verify_experiment_run_fails_without_comparable_baseline(tmp_path):
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    run_experiment(project=project, run_id="audit-missing-baseline")
+    leaderboard_path = tmp_path / "results" / "leaderboard.csv"
+    leaderboard = pd.read_csv(leaderboard_path)
+    leaderboard.loc[0, "spec_name"] = "other-spec"
+    leaderboard.to_csv(leaderboard_path, index=False)
+
+    findings = verify_experiment_run(
+        results_dir=tmp_path / "results",
+        run_id="audit-missing-baseline",
+        project=project,
+    )
+
+    baseline = next(
+        finding for finding in findings if finding.check == "comparable_baseline"
+    )
+    assert not baseline.ok
+    assert "no successful comparable baseline" in baseline.detail
 
 
 def test_append_result_requires_project_id(tmp_path):
