@@ -37,6 +37,7 @@ LEADERBOARD_COLUMNS = [
     "fold_metrics_path",
     "run_metadata_path",
     "candidate_snapshot_path",
+    "residual_diagnostics_path",
     "error_traceback_path",
     "error",
 ]
@@ -55,11 +56,7 @@ def append_result(results_dir: str | Path, row: dict) -> Path:
         old = pd.read_csv(leaderboard_path)
         columns = [
             *LEADERBOARD_COLUMNS,
-            *[
-                column
-                for column in old.columns
-                if column not in LEADERBOARD_COLUMNS
-            ],
+            *[column for column in old.columns if column not in LEADERBOARD_COLUMNS],
             *[
                 column
                 for column in row

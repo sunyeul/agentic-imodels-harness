@@ -20,6 +20,11 @@ dist/
 projects/*/data/*
 !projects/*/data/
 !projects/*/data/.gitkeep
+!projects/*/data/train.csv
+!projects/*/data/valid.csv
+!projects/*/data/test.csv
+!projects/*/data/sample_submission.csv
+!projects/*/data/metadata.json
 
 # Generated project-scoped experiment outputs
 projects/*/results/leaderboard.csv

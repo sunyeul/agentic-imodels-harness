@@ -1,4 +1,5 @@
 import json
+import shutil
 import textwrap
 from pathlib import Path
 from typing import Any
@@ -11,7 +12,7 @@ from projects.synthetic_regression import (
     DefaultEvaluationSpec,
     synthetic_regression_project,
 )
-from projects.synthetic_regression.datasets import DEFAULT_DATA_DIR
+from projects.synthetic_regression.datasets import DEFAULT_DATA_DIR, FEATURE_COLUMNS
 from projects.synthetic_regression.project import DEFAULT_RESULTS_DIR
 from toy_imodels.core.evaluation import apply_interpretability_judgment, run_experiment
 from toy_imodels.core.project import Project
@@ -25,14 +26,18 @@ from toy_imodels.interpretability import (
 from toy_imodels.leaderboard import append_result, update_result
 from toy_imodels.spec import CVStrategy, EvaluationSpec
 
-DEFAULT_CANDIDATE_MODULE = (
-    "projects.synthetic_regression.experiments.candidate_model"
-)
+DEFAULT_CANDIDATE_MODULE = "projects.synthetic_regression.experiments.candidate_model"
+
+
+def _copy_competition_data(tmp_path: Path) -> Path:
+    data_dir = tmp_path / "data"
+    shutil.copytree(DEFAULT_DATA_DIR, data_dir, dirs_exist_ok=True)
+    return data_dir
 
 
 def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     project = synthetic_regression_project(
-        data_dir=tmp_path / "data",
+        data_dir=_copy_competition_data(tmp_path),
         results_dir=tmp_path / "results",
     )
     result = run_experiment(
@@ -44,6 +49,7 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert result.project_id == "synthetic_regression"
     assert result.candidate_module == DEFAULT_CANDIDATE_MODULE
     assert Path(result.fold_metrics_path).exists()
+    assert Path(result.residual_diagnostics_path).exists()
     assert Path(result.run_metadata_path).exists()
     assert Path(result.candidate_snapshot_path).exists()
     assert result.cv_rmse_mean > 0
@@ -76,6 +82,7 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
         "fold_metrics_path",
         "run_metadata_path",
         "candidate_snapshot_path",
+        "residual_diagnostics_path",
         "error_traceback_path",
     ):
         assert column in leaderboard.columns
@@ -90,6 +97,9 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert leaderboard.loc[0, "cv_n_splits"] == 5
     assert leaderboard.loc[0, "cv_random_state"] == 42
     assert leaderboard.loc[0, "fold_metrics_path"] == result.fold_metrics_path
+    assert leaderboard.loc[0, "residual_diagnostics_path"] == (
+        result.residual_diagnostics_path
+    )
     assert leaderboard.loc[0, "run_metadata_path"] == result.run_metadata_path
     assert leaderboard.loc[0, "candidate_snapshot_path"] == (
         result.candidate_snapshot_path
@@ -107,6 +117,7 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert "cv_rmse_mean (primary)" in report_text
     assert "Run artifacts" in report_text
     assert "Fold metrics:" in report_text
+    assert "Residual diagnostics:" in report_text
     assert "Run metadata:" in report_text
     assert "Candidate snapshot:" in report_text
     assert "Model string" in report_text
@@ -118,9 +129,7 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert fold_metrics["folds"][0]["fold_index"] == 0
     assert fold_metrics["folds"][0]["train_rows"] > 0
     assert fold_metrics["folds"][0]["valid_rows"] > 0
-    assert {"rmse", "mae", "r2"} <= set(
-        fold_metrics["folds"][0]["metrics"]
-    )
+    assert {"rmse", "mae", "r2"} <= set(fold_metrics["folds"][0]["metrics"])
 
     run_metadata = json.loads(Path(result.run_metadata_path).read_text())
     assert run_metadata["run_id"] == "test-run"
@@ -133,18 +142,41 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert run_metadata["spec"]["cv_strategy_name"] == "kfold_5_shuffle_seed42"
     assert run_metadata["artifacts"]["report_path"] == result.report_path
     assert run_metadata["artifacts"]["submission_path"] == result.submission_path
-    assert run_metadata["artifacts"]["fold_metrics_path"] == (
-        result.fold_metrics_path
+    assert run_metadata["artifacts"]["fold_metrics_path"] == (result.fold_metrics_path)
+    assert run_metadata["artifacts"]["residual_diagnostics_path"] == (
+        result.residual_diagnostics_path
     )
     assert run_metadata["artifacts"]["candidate_snapshot_path"] == (
         result.candidate_snapshot_path
     )
 
+    residual_diagnostics = json.loads(
+        Path(result.residual_diagnostics_path).read_text()
+    )
+    assert residual_diagnostics["run_id"] == "test-run"
+    assert residual_diagnostics["project_id"] == "synthetic_regression"
+    assert "oracle" in residual_diagnostics["diagnostic_note"]
+    assert {
+        "residual_summary",
+        "top_features_by_residual_pattern",
+        "feature_diagnostics",
+    } <= set(residual_diagnostics)
+    assert len(residual_diagnostics["feature_diagnostics"]) == len(FEATURE_COLUMNS)
+    assert residual_diagnostics["top_features_by_residual_pattern"]
+    first_feature = residual_diagnostics["feature_diagnostics"][0]
+    assert {
+        "feature",
+        "residual_correlation",
+        "absolute_residual_correlation",
+        "max_abs_bin_residual_mean",
+        "bins",
+    } <= set(first_feature)
+
     candidate_snapshot = Path(result.candidate_snapshot_path).read_text()
     assert "class CandidateModel" in candidate_snapshot
 
-    packet_path = tmp_path / "results" / "runs" / "test-run" / (
-        "interpretability_packet.json"
+    packet_path = (
+        tmp_path / "results" / "runs" / "test-run" / ("interpretability_packet.json")
     )
     assert packet_path.exists()
     packet = json.loads(packet_path.read_text())
@@ -175,7 +207,9 @@ def test_candidate_model_does_not_encode_synthetic_oracle_structure():
         "hinge_x2_gt_0.25",
         "sin_pi_x5",
         "x3_times_x4",
-        "x6_squared",
+        "regime_gate",
+        "localized_wave",
+        "sparse_bump",
         "max(0, x2 - 0.25)",
     ]
     for fragment in forbidden_fragments:
@@ -183,20 +217,51 @@ def test_candidate_model_does_not_encode_synthetic_oracle_structure():
 
 
 def test_synthetic_metadata_does_not_publish_oracle_structure(tmp_path):
-    from projects.synthetic_regression.datasets import generate_synthetic_competition
-
-    generate_synthetic_competition(tmp_path)
-    metadata = json.loads((tmp_path / "metadata.json").read_text())
+    data_dir = _copy_competition_data(tmp_path)
+    metadata = json.loads((data_dir / "metadata.json").read_text())
 
     assert "known_structure" not in metadata
+    assert "seed" not in metadata
+    assert "n_samples" not in metadata
+
+
+def test_public_test_data_does_not_include_targets(tmp_path):
+    data_dir = _copy_competition_data(tmp_path)
+    test = pd.read_csv(data_dir / "test.csv")
+
+    assert "target" not in test.columns
+    assert {"id", *FEATURE_COLUMNS} == set(test.columns)
+
+
+def test_load_competition_data_requires_public_files(tmp_path):
+    project = synthetic_regression_project(
+        data_dir=tmp_path / "missing-data",
+        results_dir=tmp_path / "results",
+    )
+
+    with pytest.raises(FileNotFoundError, match="Missing competition data files"):
+        project.load_data(project.data_dir)
+
+
+def test_candidate_visible_project_code_does_not_include_generator_oracle():
+    datasets_source = Path("projects/synthetic_regression/datasets.py").read_text()
+
+    forbidden_fragments = [
+        "_target_function",
+        "make_synthetic_frame",
+        "generate_synthetic_competition",
+        "regime_gate",
+        "localized_wave",
+        "sparse_bump",
+    ]
+    for fragment in forbidden_fragments:
+        assert fragment not in datasets_source
 
 
 def test_candidate_model_runtime_does_not_perform_io(monkeypatch):
-    from projects.synthetic_regression.datasets import make_synthetic_frame
-
-    frame = make_synthetic_frame(n_samples=32, seed=123)
-    x = frame[[f"x{i}" for i in range(7)]]
-    y = frame["target"]
+    competition_data = synthetic_regression_project().load_data(DEFAULT_DATA_DIR)
+    x = competition_data.x_train.head(32)
+    y = competition_data.y_train.head(32)
 
     def forbid_io(*args: Any, **kwargs: Any) -> None:
         raise AssertionError("Candidate runtime must not perform filesystem I/O")
@@ -237,7 +302,7 @@ def test_candidate_model_runtime_does_not_perform_io(monkeypatch):
 
 def test_run_experiment_cv_metrics_are_deterministic(tmp_path):
     first_project = synthetic_regression_project(
-        data_dir=tmp_path / "data",
+        data_dir=_copy_competition_data(tmp_path),
         results_dir=tmp_path / "results",
     )
     first = run_experiment(
@@ -245,7 +310,7 @@ def test_run_experiment_cv_metrics_are_deterministic(tmp_path):
         run_id="deterministic-one",
     )
     second_project = synthetic_regression_project(
-        data_dir=tmp_path / "data",
+        data_dir=_copy_competition_data(tmp_path),
         results_dir=tmp_path / "results",
     )
     second = run_experiment(
@@ -366,7 +431,7 @@ def test_run_experiment_uses_custom_project_evaluation_spec(tmp_path):
     evaluation_spec = CountingEvaluationSpec()
 
     project = synthetic_regression_project(
-        data_dir=tmp_path / "data",
+        data_dir=_copy_competition_data(tmp_path),
         results_dir=tmp_path / "results",
         spec=evaluation_spec,
     )
@@ -407,7 +472,7 @@ def test_run_experiment_uses_custom_project_evaluation_spec(tmp_path):
 
 def test_interpretability_score_is_fixed_harness_evaluator(tmp_path):
     project = synthetic_regression_project(
-        data_dir=tmp_path / "data",
+        data_dir=_copy_competition_data(tmp_path),
         results_dir=tmp_path / "results",
     )
     result = run_experiment(
@@ -425,7 +490,7 @@ def test_interpretability_score_is_fixed_harness_evaluator(tmp_path):
 
 def test_apply_interpretability_judgment_updates_leaderboard_and_report(tmp_path):
     project = synthetic_regression_project(
-        data_dir=tmp_path / "data",
+        data_dir=_copy_competition_data(tmp_path),
         results_dir=tmp_path / "results",
     )
     result = run_experiment(
@@ -473,11 +538,7 @@ def test_apply_interpretability_judgment_updates_leaderboard_and_report(tmp_path
     )
 
     assert normalized_path == (
-        tmp_path
-        / "results"
-        / "runs"
-        / "judged-run"
-        / "interpretability_judgment.json"
+        tmp_path / "results" / "runs" / "judged-run" / "interpretability_judgment.json"
     )
     normalized = json.loads(normalized_path.read_text())
     assert normalized["interpretability_score"] == 0.7
@@ -497,9 +558,7 @@ def test_apply_interpretability_judgment_updates_leaderboard_and_report(tmp_path
     assert leaderboard.loc[0, "run_id"] == "judged-run"
     assert leaderboard.loc[0, "interpretability_score"] == 0.7
     assert leaderboard.loc[0, "interpretability_rubric_version"] == RUBRIC_VERSION
-    assert leaderboard.loc[0, "interpretability_judgment_path"] == str(
-        normalized_path
-    )
+    assert leaderboard.loc[0, "interpretability_judgment_path"] == str(normalized_path)
     assert leaderboard.loc[0, "interpretability_audit_status"] in {"pass", "review"}
     assert leaderboard.loc[0, "interpretability_audit_path"] == str(audit_path)
 
@@ -618,7 +677,7 @@ def test_apply_interpretability_judgment_rejects_invalid_artifacts(
     tmp_path, override, message
 ):
     project = synthetic_regression_project(
-        data_dir=tmp_path / "data",
+        data_dir=_copy_competition_data(tmp_path),
         results_dir=tmp_path / "results",
     )
     run_experiment(
@@ -651,7 +710,7 @@ def test_apply_interpretability_judgment_rejects_invalid_artifacts(
 
 def test_project_data_dataclass_validates_feature_columns(tmp_path):
     project = synthetic_regression_project(
-        data_dir=tmp_path / "data",
+        data_dir=_copy_competition_data(tmp_path),
         results_dir=tmp_path / "results",
     )
     competition_data = project.load_data(project.data_dir)
@@ -690,7 +749,7 @@ def test_run_experiment_records_runtime_failure_traceback(tmp_path):
         )
     )
     project = synthetic_regression_project(
-        data_dir=tmp_path / "data",
+        data_dir=_copy_competition_data(tmp_path),
         results_dir=tmp_path / "results",
     )
 
@@ -717,7 +776,7 @@ def test_run_experiment_records_contract_failure_traceback(tmp_path):
     (module_dir / "__init__.py").write_text("")
     (module_dir / "missing_contract.py").write_text("BROKEN = True\n")
     project = synthetic_regression_project(
-        data_dir=tmp_path / "data",
+        data_dir=_copy_competition_data(tmp_path),
         results_dir=tmp_path / "results",
     )
 
@@ -736,6 +795,49 @@ def test_run_experiment_records_contract_failure_traceback(tmp_path):
     traceback_path = Path(leaderboard.loc[0, "error_traceback_path"])
     assert traceback_path.exists()
     assert "must define CandidateModel" in traceback_path.read_text()
+
+
+def test_run_experiment_rejects_candidate_dataset_loader_references(tmp_path):
+    module_dir = tmp_path / "leaky_candidate_pkg"
+    module_dir.mkdir()
+    (module_dir / "__init__.py").write_text("")
+    (module_dir / "leaky.py").write_text(
+        textwrap.dedent(
+            """
+            from projects.synthetic_regression.datasets import DEFAULT_DATA_DIR
+            from toy_imodels.core.candidate import BaseCandidateModel
+
+
+            class CandidateModel(BaseCandidateModel):
+                def fit(self, X, y):
+                    self.path = DEFAULT_DATA_DIR
+                    return self
+
+                def predict(self, X):
+                    return [0.0] * len(X)
+
+                def __str__(self):
+                    return "leaky candidate"
+            """
+        )
+    )
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+
+    with pytest.raises(RuntimeError, match="must not reference competition data"):
+        run_experiment(
+            project=project,
+            candidate_module="leaky_candidate_pkg.leaky",
+            run_id="leaky-candidate",
+            import_path=[tmp_path],
+        )
+
+    leaderboard = pd.read_csv(tmp_path / "results" / "leaderboard.csv")
+    assert leaderboard.loc[0, "run_id"] == "leaky-candidate"
+    assert leaderboard.loc[0, "status"] == "contract_error"
+    assert "DEFAULT_DATA_DIR" in leaderboard.loc[0, "error"]
 
 
 def test_toy_experiment_skill_mentions_pdca_run_artifacts():

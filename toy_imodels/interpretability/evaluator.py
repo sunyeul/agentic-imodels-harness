@@ -146,7 +146,7 @@ def build_interpretability_packet(
 ) -> dict[str, Any]:
     """Build the fixed packet a judge uses to score agent-facing interpretability."""
 
-    packet = {
+    packet: dict[str, Any] = {
         "run_id": run_id,
         "rubric_version": RUBRIC_VERSION,
         "model_string": model_string,
@@ -344,7 +344,7 @@ def score_model_string_static(model_string: str) -> float:
         symbol_score += 0.25
     if "+" in text or "-" in text:
         symbol_score += 0.25
-    if any(f"x{i}" in text for i in range(7)):
+    if any(f"x{i}" in text for i in range(15)):
         symbol_score += 0.25
     if any(char.isdigit() for char in text):
         symbol_score += 0.25

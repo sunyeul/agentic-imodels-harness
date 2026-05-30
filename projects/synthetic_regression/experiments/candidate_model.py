@@ -10,7 +10,10 @@ from toy_imodels.core.candidate import BaseCandidateModel
 
 class CandidateModel(BaseCandidateModel):
     model_name = "baseline_ridge"
-    notes = "Ridge regression baseline with standardized features."
+    notes = (
+        "Ridge regression baseline with standardized features; useful as a "
+        "linear reference point for later residual-driven model search."
+    )
 
     def __init__(self) -> None:
         self.feature_names: list[str] = []
@@ -46,5 +49,9 @@ class CandidateModel(BaseCandidateModel):
             "Ridge linear regression. "
             f"Prediction equation: y = {intercept:.3f} + {equation}. "
             f"Top coefficient features: {top_features}. "
-            "Coefficients are shown in original feature units."
+            "Coefficients are shown in original feature units. "
+            "Search note: this candidate can expose broad linear effects, but "
+            "it cannot represent thresholds, localized nonlinear responses, "
+            "feature interactions, or subgroup-specific behavior unless those "
+            "signals are added as explicit features in a later candidate."
         )

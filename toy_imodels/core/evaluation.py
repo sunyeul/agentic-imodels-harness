@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import importlib.util
 import inspect
 import json
 import sys
@@ -33,6 +34,18 @@ class CandidateContractError(RuntimeError):
     """Raised when the editable candidate model does not match the harness API."""
 
 
+FORBIDDEN_CANDIDATE_SOURCE_FRAGMENTS = (
+    "projects.synthetic_regression.datasets",
+    "synthetic_regression.datasets",
+    "DEFAULT_DATA_DIR",
+    "train.csv",
+    "valid.csv",
+    "test.csv",
+    "sample_submission.csv",
+    "metadata.json",
+)
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class EvaluationResult:
     run_id: str
@@ -60,6 +73,7 @@ class EvaluationResult:
     fold_metrics_path: str
     run_metadata_path: str
     candidate_snapshot_path: str
+    residual_diagnostics_path: str
     metrics: dict[str, float]
     valid_rmse: float | None = None
     valid_mae: float | None = None
@@ -86,6 +100,7 @@ class EvaluationResult:
 def _load_candidate_class(
     module_name: str, import_path: list[Path] | None = None
 ) -> type[BaseCandidateModel]:
+    _reject_candidate_leakage_source(module_name, import_path=import_path)
     added_paths: list[str] = []
     if import_path:
         for path in import_path:
@@ -110,6 +125,48 @@ def _load_candidate_class(
     return candidate_class
 
 
+def _candidate_source_before_import(
+    module_name: str, import_path: list[Path] | None = None
+) -> str:
+    added_paths: list[str] = []
+    if import_path:
+        for path in import_path:
+            path_str = str(path)
+            if path_str not in sys.path:
+                sys.path.insert(0, path_str)
+                added_paths.append(path_str)
+    try:
+        spec = importlib.util.find_spec(module_name)
+    finally:
+        for path_str in added_paths:
+            if path_str in sys.path:
+                sys.path.remove(path_str)
+
+    if spec is None or spec.origin is None:
+        return ""
+    try:
+        return Path(spec.origin).read_text()
+    except OSError:
+        return ""
+
+
+def _reject_candidate_leakage_source(
+    module_name: str, import_path: list[Path] | None = None
+) -> None:
+    source = _candidate_source_before_import(module_name, import_path=import_path)
+    forbidden_hits = [
+        fragment
+        for fragment in FORBIDDEN_CANDIDATE_SOURCE_FRAGMENTS
+        if fragment in source
+    ]
+    if forbidden_hits:
+        raise CandidateContractError(
+            "CandidateModel must not reference competition data files, "
+            "dataset loaders, or benchmark metadata. Forbidden fragments: "
+            + ", ".join(forbidden_hits)
+        )
+
+
 def _make_candidate(candidate_class: type[BaseCandidateModel]) -> BaseCandidateModel:
     try:
         candidate = candidate_class()
@@ -132,9 +189,10 @@ def _cross_validate_candidate(
     y_labeled: pd.Series,
     *,
     evaluation_spec: EvaluationSpec,
-) -> tuple[dict[str, float], list[dict[str, object]]]:
+) -> tuple[dict[str, float], list[dict[str, object]], pd.Series]:
     fold_scores: list[dict[str, float]] = []
     fold_records: list[dict[str, object]] = []
+    oof_predictions = pd.Series(index=x_labeled.index, dtype=float)
 
     splitter = evaluation_spec.cv_strategy.splitter
     for fold_index, (train_index, valid_index) in enumerate(
@@ -148,6 +206,7 @@ def _cross_validate_candidate(
 
         candidate.fit(x_train_fold, y_train_fold)
         fold_pred = candidate.predict(x_valid_fold)
+        oof_predictions.iloc[valid_index] = fold_pred
         fold_metrics = evaluation_spec.score_predictions(y_valid_fold, fold_pred)
         fold_scores.append(fold_metrics)
         fold_records.append(
@@ -159,7 +218,11 @@ def _cross_validate_candidate(
             }
         )
 
-    return evaluation_spec.aggregate_fold_scores(fold_scores), fold_records
+    return (
+        evaluation_spec.aggregate_fold_scores(fold_scores),
+        fold_records,
+        oof_predictions,
+    )
 
 
 def _make_run_id() -> str:
@@ -232,6 +295,98 @@ def _write_fold_metrics(
     )
 
 
+def _safe_corr(left: pd.Series, right: pd.Series) -> float:
+    corr = left.corr(right)
+    if pd.isna(corr):
+        return 0.0
+    return float(corr)
+
+
+def _feature_bin_records(
+    feature: pd.Series, residuals: pd.Series, *, n_bins: int = 4
+) -> list[dict[str, object]]:
+    ranked = feature.rank(method="first")
+    bins = cast(pd.Series, pd.qcut(ranked, q=n_bins, labels=False, duplicates="drop"))
+    records: list[dict[str, object]] = []
+    for bin_index in sorted(bins.dropna().unique()):
+        mask = bins == bin_index
+        feature_bin = cast(pd.Series, feature[mask])
+        residual_bin = cast(pd.Series, residuals[mask])
+        records.append(
+            {
+                "bin_index": int(bin_index),
+                "row_count": int(mask.sum()),
+                "feature_min": float(feature_bin.min()),
+                "feature_max": float(feature_bin.max()),
+                "residual_mean": float(residual_bin.mean()),
+                "residual_abs_mean": float(residual_bin.abs().mean()),
+            }
+        )
+    return records
+
+
+def _write_residual_diagnostics(
+    run_dir: Path,
+    *,
+    run_id: str,
+    project_id: str,
+    x_labeled: pd.DataFrame,
+    y_labeled: pd.Series,
+    oof_predictions: pd.Series,
+) -> Path:
+    residuals = y_labeled - oof_predictions
+    feature_records = []
+    for feature_name in x_labeled.columns:
+        feature = cast(pd.Series, x_labeled[feature_name])
+        bins = _feature_bin_records(feature, residuals)
+        max_bin_shift = max(
+            (abs(cast(float, item["residual_mean"])) for item in bins),
+            default=0.0,
+        )
+        feature_records.append(
+            {
+                "feature": feature_name,
+                "residual_correlation": _safe_corr(feature, residuals),
+                "absolute_residual_correlation": _safe_corr(
+                    feature.abs(), residuals.abs()
+                ),
+                "max_abs_bin_residual_mean": float(max_bin_shift),
+                "bins": bins,
+            }
+        )
+
+    ranked_features = sorted(
+        feature_records,
+        key=lambda item: (
+            abs(cast(float, item["residual_correlation"])),
+            cast(float, item["max_abs_bin_residual_mean"]),
+        ),
+        reverse=True,
+    )
+    return _write_json_artifact(
+        run_dir / "residual_diagnostics.json",
+        {
+            "run_id": run_id,
+            "project_id": project_id,
+            "diagnostic_note": (
+                "Diagnostics are computed from out-of-fold residuals only. "
+                "They expose observed error patterns, not hidden benchmark "
+                "oracle structure."
+            ),
+            "residual_summary": {
+                "mean": float(residuals.mean()),
+                "std": float(residuals.std()),
+                "abs_mean": float(residuals.abs().mean()),
+                "p10": float(residuals.quantile(0.10)),
+                "p50": float(residuals.quantile(0.50)),
+                "p90": float(residuals.quantile(0.90)),
+            },
+            "top_features_by_residual_pattern": ranked_features[:8],
+            "feature_diagnostics": feature_records,
+        },
+    )
+
+
 def _write_run_metadata(
     run_dir: Path,
     *,
@@ -244,6 +399,7 @@ def _write_run_metadata(
     report_path: Path,
     submission_path: Path,
     fold_metrics_path: Path,
+    residual_diagnostics_path: Path,
     candidate_snapshot_path: Path,
 ) -> Path:
     return _write_json_artifact(
@@ -257,9 +413,7 @@ def _write_run_metadata(
             "spec": {
                 "spec_name": spec_metadata["spec_name"],
                 "primary_metric": spec_metadata["primary_metric"],
-                "primary_metric_direction": spec_metadata[
-                    "primary_metric_direction"
-                ],
+                "primary_metric_direction": spec_metadata["primary_metric_direction"],
                 "cv_strategy_name": spec_metadata["cv_strategy_name"],
                 "cv_n_splits": spec_metadata["cv_n_splits"],
                 "cv_random_state": spec_metadata["cv_random_state"],
@@ -269,6 +423,7 @@ def _write_run_metadata(
                 "report_path": str(report_path),
                 "submission_path": str(submission_path),
                 "fold_metrics_path": str(fold_metrics_path),
+                "residual_diagnostics_path": str(residual_diagnostics_path),
                 "candidate_snapshot_path": str(candidate_snapshot_path),
             },
         },
@@ -312,7 +467,7 @@ def run_experiment(
         y_labeled = pd.concat(
             [competition_data.y_train, competition_data.y_valid], ignore_index=True
         )
-        cv_metrics, fold_records = _cross_validate_candidate(
+        cv_metrics, fold_records, oof_predictions = _cross_validate_candidate(
             candidate_class, x_labeled, y_labeled, evaluation_spec=evaluation_spec
         )
         result_metrics = evaluation_spec.result_metrics(cv_metrics)
@@ -327,6 +482,14 @@ def run_experiment(
             run_id=run_id,
             project_id=project.project_id,
             fold_records=fold_records,
+        )
+        residual_diagnostics_path = _write_residual_diagnostics(
+            runs_dir,
+            run_id=run_id,
+            project_id=project.project_id,
+            x_labeled=x_labeled,
+            y_labeled=y_labeled,
+            oof_predictions=oof_predictions,
         )
 
         candidate = _make_candidate(candidate_class)
@@ -359,9 +522,7 @@ def run_experiment(
             notes=getattr(candidate, "notes", ""),
             spec_name=str(spec_metadata["spec_name"]),
             primary_metric=str(spec_metadata["primary_metric"]),
-            primary_metric_direction=str(
-                spec_metadata["primary_metric_direction"]
-            ),
+            primary_metric_direction=str(spec_metadata["primary_metric_direction"]),
             cv_strategy_name=str(spec_metadata["cv_strategy_name"]),
             cv_n_splits=cv_n_splits,
             cv_random_state=cv_random_state,
@@ -370,6 +531,7 @@ def run_experiment(
             interpretability_score=interp_score,
             model_string=model_string,
             fold_metrics_path=fold_metrics_path,
+            residual_diagnostics_path=residual_diagnostics_path,
             run_metadata_path=planned_run_metadata_path,
             candidate_snapshot_path=candidate_snapshot_path,
             next_candidate_path=f"{candidate_module.replace('.', '/')}.py",
@@ -385,6 +547,7 @@ def run_experiment(
             report_path=report_path,
             submission_path=submission_path,
             fold_metrics_path=fold_metrics_path,
+            residual_diagnostics_path=residual_diagnostics_path,
             candidate_snapshot_path=candidate_snapshot_path,
         )
 
@@ -397,9 +560,7 @@ def run_experiment(
             notes=getattr(candidate, "notes", ""),
             spec_name=str(spec_metadata["spec_name"]),
             primary_metric=str(spec_metadata["primary_metric"]),
-            primary_metric_direction=str(
-                spec_metadata["primary_metric_direction"]
-            ),
+            primary_metric_direction=str(spec_metadata["primary_metric_direction"]),
             cv_rmse_mean=result_metrics["cv_rmse_mean"],
             cv_rmse_std=result_metrics["cv_rmse_std"],
             cv_mae_mean=result_metrics["cv_mae_mean"],
@@ -416,6 +577,7 @@ def run_experiment(
             fold_metrics_path=str(fold_metrics_path),
             run_metadata_path=str(run_metadata_path),
             candidate_snapshot_path=str(candidate_snapshot_path),
+            residual_diagnostics_path=str(residual_diagnostics_path),
             metrics=cv_metrics,
         )
         append_result(
@@ -471,9 +633,7 @@ def apply_interpretability_judgment(
 
     source_path = Path(judgment_path)
     judgment = json.loads(source_path.read_text())
-    normalized = validate_interpretability_judgment(
-        judgment, expected_run_id=run_id
-    )
+    normalized = validate_interpretability_judgment(judgment, expected_run_id=run_id)
 
     leaderboard = read_leaderboard(results_dir)
     matches = leaderboard["run_id"] == run_id
@@ -507,12 +667,8 @@ def apply_interpretability_judgment(
     packet = json.loads(packet_path.read_text())
 
     normalized_path = target_run_dir / "interpretability_judgment.json"
-    normalized_path.write_text(
-        json.dumps(normalized, indent=2, sort_keys=True) + "\n"
-    )
-    audit = audit_interpretability_judgment(
-        packet=packet, judgment=normalized
-    )
+    normalized_path.write_text(json.dumps(normalized, indent=2, sort_keys=True) + "\n")
+    audit = audit_interpretability_judgment(packet=packet, judgment=normalized)
     audit_path = target_run_dir / "interpretability_judgment_audit.json"
     audit_path.write_text(json.dumps(audit, indent=2, sort_keys=True) + "\n")
 

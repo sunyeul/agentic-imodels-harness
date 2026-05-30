@@ -28,6 +28,7 @@ def write_run_report(
     interpretability_score: float,
     model_string: str,
     fold_metrics_path: str | Path | None = None,
+    residual_diagnostics_path: str | Path | None = None,
     run_metadata_path: str | Path | None = None,
     candidate_snapshot_path: str | Path | None = None,
     next_candidate_path: str = DEFAULT_NEXT_CANDIDATE_PATH,
@@ -38,14 +39,14 @@ def write_run_report(
     artifact_lines: list[str] = []
     if fold_metrics_path is not None:
         artifact_lines.append(f"- Fold metrics: {fold_metrics_path}")
+    if residual_diagnostics_path is not None:
+        artifact_lines.append(f"- Residual diagnostics: {residual_diagnostics_path}")
     if run_metadata_path is not None:
         artifact_lines.append(f"- Run metadata: {run_metadata_path}")
     if candidate_snapshot_path is not None:
         artifact_lines.append(f"- Candidate snapshot: {candidate_snapshot_path}")
     artifact_section = (
-        ["", "## Run artifacts", "", *artifact_lines]
-        if artifact_lines
-        else []
+        ["", "## Run artifacts", "", *artifact_lines] if artifact_lines else []
     )
     report_path.write_text(
         "\n".join(
@@ -79,7 +80,9 @@ def write_run_report(
                 "## Next-step hint",
                 "",
                 "Inspect leaderboard movement, then change only "
-                f"`{next_candidate_path}` for the next run.",
+                f"`{next_candidate_path}` for the next run. Use the residual "
+                "diagnostics artifact as the fixed, oracle-free evidence about "
+                "where this candidate failed.",
                 "",
             ]
         )
@@ -126,10 +129,7 @@ def apply_interpretability_judgment_to_report(
     ]
     for dimension_name, dimension in dimension_scores.items():
         score = cast(float, dimension["score"])
-        section.append(
-            f"- {dimension_name}: {score:.4f} - "
-            f"{dimension['rationale']}"
-        )
+        section.append(f"- {dimension_name}: {score:.4f} - {dimension['rationale']}")
     section.append("")
 
     try:

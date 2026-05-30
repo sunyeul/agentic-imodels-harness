@@ -60,15 +60,12 @@ class Project:
 
     def __post_init__(self) -> None:
         if not PROJECT_ID_PATTERN.fullmatch(self.project_id):
-            raise ValueError(
-                "Project.project_id must match ^[a-z][a-z0-9_]*$"
-            )
+            raise ValueError("Project.project_id must match ^[a-z][a-z0-9_]*$")
         if not self.package_name.strip():
             raise ValueError("Project.package_name must not be empty")
         package_parts = self.package_name.split(".")
-        if (
-            package_parts[-1] != self.project_id
-            or not all(part.isidentifier() for part in package_parts)
+        if package_parts[-1] != self.project_id or not all(
+            part.isidentifier() for part in package_parts
         ):
             raise ValueError(
                 "Project.package_name must be a dotted package ending in project_id"
