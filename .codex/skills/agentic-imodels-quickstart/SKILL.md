@@ -62,4 +62,6 @@ missing, or when a user asks for the quickstart path.
 When the user wants to create a new project under `projects/`, use the
 `agentic-imodels-scaffold-project` skill instead of hand-writing project files.
 That skill owns copying the sample project structure, validating the new project
-name, and printing the follow-up smoke/check command.
+name, creating or switching to the `project/<project-name>` setup branch, and
+printing the follow-up smoke/check command. Use `exp/` branches only for later
+experiment/model-iteration work.
