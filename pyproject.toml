@@ -1,0 +1,56 @@
+[project]
+name = "agentic-imodels-sample"
+version = "0.1.0"
+description = "Toy AGENTIC-IMODELS style experiment harness."
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.24",
+  "pandas>=2.0",
+  "scikit-learn>=1.3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "I",
+  "UP",
+  "B",
+  "SIM",
+]
+
+[tool.pyright]
+include = ["toy_imodels", "projects", "tests"]
+exclude = [
+  "**/__pycache__",
+  ".ruff_cache",
+  ".pytest_cache",
+  "projects/*/data",
+  "results",
+  "projects/*/results",
+]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+venvPath = "."
+venv = ".venv"
+reportUnsupportedDunderAll = false
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.15.15",
+    "zuban>=0.7.2",
+]

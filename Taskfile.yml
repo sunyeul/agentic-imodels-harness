@@ -1,0 +1,52 @@
+version: '3'
+
+tasks:
+  default:
+    desc: Lists all available tasks
+    cmds:
+      - task -l
+
+  # =============================================================================
+  # Quality Checks
+  # =============================================================================
+  
+  format:
+    desc: Formats code with ruff
+    cmds:
+      - uv run --group dev ruff format .
+
+  lint:
+    desc: Lints code with ruff (auto-fix enabled)
+    cmds:
+      - uv run --group dev ruff check . --fix
+
+  typecheck:
+    desc: Runs type checking with pyright and zuban
+    cmds:
+      - uvx pyright
+      - uv run --group dev zuban check
+
+  test:
+    desc: Runs pytest test suite (critical tests only, ~2-3s)
+    cmds:
+      - uv run --extra dev pytest {{.CLI_ARGS}}
+
+  check:
+    desc: Runs all quality checks (format, lint, typecheck, test)
+    cmds:
+      - task: format
+      - task: lint
+      - task: typecheck
+      - task: test
+
+  # =============================================================================
+  # Utilities
+  # =============================================================================
+
+  clean:
+    desc: Cleans up cache files and build artifacts
+    cmds:
+      - find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+      - find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+      - find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
+      - find . -type f -name "*.pyc" -delete 2>/dev/null || true

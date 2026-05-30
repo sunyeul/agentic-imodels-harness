@@ -1,0 +1,37 @@
+{
+    "folders": [
+        {
+            "path": ".",
+            "name": "Agentic Imodels Sample"
+        }
+    ],
+    "settings": {
+        "[python]": {
+            "editor.formatOnSave": true,
+            "editor.codeActionsOnSave": {
+                "source.fixAll": "explicit",
+                "source.organizeImports": "explicit"
+            },
+            "editor.defaultFormatter": "charliermarsh.ruff"
+        },
+        "python.testing.pytestArgs": [
+            "tests"
+        ],
+        "python.testing.unittestEnabled": false,
+        "python.testing.pytestEnabled": true,
+        "[markdown]": {
+            "editor.formatOnSave": true,
+            "editor.codeActionsOnSave": {
+                "source.fixAll.markdownlint": "explicit"
+            }
+        },
+        "files.exclude": {
+            "**/.git": true,
+            "**/.DS_Store": true,
+            "**/.venv": true,
+            "**/.pytest_cache": true,
+            "**/.ruff_cache": true,
+            "**/__pycache__": true,
+        }
+    }
+}

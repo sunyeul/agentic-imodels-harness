@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.pyright/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local OS/editor noise
+.DS_Store
+
+# Generated project-scoped competition data
+projects/*/data/*
+!projects/*/data/
+!projects/*/data/.gitkeep
+
+# Generated project-scoped experiment outputs
+projects/*/results/leaderboard.csv
+projects/*/results/runs/*
+projects/*/results/submissions/*
+!projects/*/results/
+!projects/*/results/runs/
+!projects/*/results/submissions/
+!projects/*/results/runs/.gitkeep
+!projects/*/results/submissions/.gitkeep
