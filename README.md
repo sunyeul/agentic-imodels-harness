@@ -47,6 +47,7 @@ After quickstart, expect:
 - a submission CSV under `projects/synthetic_regression/results/submissions/`
 - a run report under `projects/synthetic_regression/results/runs/`
 - an oracle-free residual diagnostics artifact for each run
+- a tracked journal under `projects/synthetic_regression/experiments/journal/`
 - the smoke test suite to pass
 
 ## Codex harness
@@ -67,3 +68,17 @@ The usual loop is:
 Candidate iteration normally stays on the long-lived `project/<project-name>`
 branch. Use one commit per modeling hypothesis so the commit history records
 the automated-research search path.
+
+## Experiment audit
+
+Run `task verify-experiment -- <run_id>` to check candidate/source provenance for
+a completed run. Without a run id, the task verifies the latest successful
+`synthetic_regression` run.
+
+The fixed harness always writes `interpretability_packet.json`. To replace the
+static fallback score with an agent judgment, create a judgment JSON matching
+the packet schema, apply it with `apply_interpretability_judgment()`, then keep
+the generated `interpretability_judgment.json`,
+`interpretability_judgment_audit.json`, leaderboard update, report update, and
+journal update together as the audit record. Only journal Markdown files are
+tracked by git; generated result artifacts remain ignored.

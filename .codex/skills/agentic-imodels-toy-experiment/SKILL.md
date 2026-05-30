@@ -37,9 +37,12 @@ Use this skill for repeatable model-iteration work in this repository.
 7. Edit only `projects/synthetic_regression/experiments/candidate_model.py` unless the user explicitly asks to change the harness.
 8. Run `uv run python -m projects.synthetic_regression.run_experiment`.
 9. Inspect `projects/synthetic_regression/results/leaderboard.csv`, the latest run report, and
-   `interpretability_packet.json`. If no agent judgment exists, recommend using
-   `.codex/agents/interpretability-judge.md`; if a draft judgment exists,
-   apply it through the fixed harness with `apply_interpretability_judgment()`.
+  `interpretability_packet.json`. Also inspect the matching tracked journal
+  under `projects/synthetic_regression/experiments/journal/`. If no agent
+  judgment exists, recommend using `.codex/agents/interpretability-judge.md`;
+  if a draft judgment exists, apply it through the fixed harness with
+  `apply_interpretability_judgment()` so the leaderboard, report, audit artifact,
+  and journal are updated together.
 10. Analyze performance and interpretability together. Prefer agent-judged
    interpretability scores when present; otherwise mark the static score as a
    fallback. Report whether the latest run improves both predictive performance
@@ -65,6 +68,10 @@ Use this skill for repeatable model-iteration work in this repository.
   `run_metadata.json`, interpretability artifacts, and any `error_traceback.txt`.
   Prefer agent-judged interpretability when available; use the static score only
   as a fallback.
+- Audit: run `task verify-experiment -- <run_id>` before retaining a candidate
+  to check Git provenance, candidate snapshot hash, active spec metadata,
+  protected harness/spec/data drift, comparable baseline, and the tracked
+  journal entry.
 - Act: choose the next single experiment using score movement, fold behavior,
   active spec metadata, `candidate_snapshot.py`, model string quality, and
   performance-agentic-interpretability frontier position. Stop after
