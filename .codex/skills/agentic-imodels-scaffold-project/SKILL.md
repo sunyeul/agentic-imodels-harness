@@ -22,8 +22,8 @@ unless the user asks for that separately.
    - Check the current branch and worktree status first.
    - If the target branch already exists, switch to it.
    - If it does not exist, create it from the current commit and switch to it.
-   - Use `project/` only for project setup/scaffolding branches; reserve `exp/`
-     for later experiment/model-iteration branches.
+   - Use `project/` as the long-lived branch for both project setup and later
+     candidate iteration. Do not create separate `exp/` branches by default.
 3. Run the bundled scaffolding script from the repository root:
 
    ```bash
@@ -45,6 +45,8 @@ unless the user asks for that separately.
 - This skill owns creating the project directory and preserving the sample
   structure.
 - This skill owns the `project/` branch setup for new project scaffolding.
+- Later candidate iteration should stay on the same `project/` branch and use
+  one commit per modeling hypothesis.
 - `agentic-imodels-quickstart` should call this skill instead of hand-writing a
   new project.
 - `agentic-imodels-toy-experiment` owns later iteration on

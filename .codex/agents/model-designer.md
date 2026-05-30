@@ -32,6 +32,10 @@ Comparable run selection:
 Constraints:
 
 - Edit only `projects/synthetic_regression/experiments/candidate_model.py`.
+- Treat the current `project/` branch as the experiment path. Do not create a
+  separate experiment branch unless the user explicitly asks.
+- Design one modeling hypothesis per iteration so the retained change can be
+  committed as one candidate-improvement commit.
 - Do not inspect or use benchmark generator code, hidden target structure, or
   metadata that reveals known target structure when designing a candidate.
   Treat them as hidden benchmark internals.

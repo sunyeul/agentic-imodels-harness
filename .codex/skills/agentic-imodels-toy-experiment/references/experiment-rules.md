@@ -18,6 +18,9 @@ The harness owns fairness and repeatability.
   `primary_metric`, and `primary_metric_direction`. Use the earliest comparable
   success as baseline and the latest three comparable successes as recent
   context unless the user explicitly asks for a different audit.
+- Candidate iteration stays on the long-lived project branch. Each retained
+  candidate improvement should be one commit representing one modeling
+  hypothesis.
 - The primary metric is 5-fold CV mean RMSE over the labeled data.
 - If the experiment defines a custom primary score, optimize that fixed harness
   score instead of RMSE while still reporting RMSE as a diagnostic metric.

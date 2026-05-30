@@ -7,6 +7,8 @@
    - If exactly one project is available, state that project and its default spec.
    - If multiple projects are available and the user did not name one, list them
      and ask the user to choose.
+   - Stay on the selected project's long-lived `project/` branch for candidate
+     iteration unless the user explicitly asks for a separate branch.
 3. Inspect the selected project's evaluation spec file and note the active
    `EvaluationSpec`, declared primary metric, primary metric direction, CV
    strategy, aggregation outputs, and report metric lines.
@@ -36,3 +38,5 @@
 11. Edit only `projects/synthetic_regression/experiments/candidate_model.py`.
 12. Re-run the experiment and compare scores. Recommend the next iteration, but
     wait for the user before running it.
+13. If the user keeps the change, commit exactly that candidate improvement on
+    the project branch. Use one commit per modeling hypothesis.

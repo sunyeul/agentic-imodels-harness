@@ -18,6 +18,8 @@ Use this skill for repeatable model-iteration work in this repository.
    - If more than one project is available and the user did not name one, list
      the available projects and ask the user to choose before running or editing
      experiments.
+   - Use the project's long-lived `project/<project-name>` branch for candidate
+     iteration. Do not create per-experiment branches by default.
 4. Inspect the selected project's evaluation spec file before proposing a new model. Note
    the current `EvaluationSpec.name`, `primary_metric`,
    `primary_metric_direction`, CV strategy metadata, metric aggregation policy,
@@ -46,6 +48,9 @@ Use this skill for repeatable model-iteration work in this repository.
 11. Recommend the next single experiment, but do not run another iteration
     until the user chooses to continue.
 12. Use `.codex/agents/model-designer.md`, `.codex/agents/experiment-runner.md`, or `.codex/agents/result-analyst.md` for focused subagent work.
+13. When the user asks to persist an improvement, create exactly one commit for
+    the single modeling hypothesis. Do not mix harness, spec, data, or docs
+    changes into candidate-improvement commits.
 
 ## PDCA Run Artifact Usage
 
@@ -64,6 +69,8 @@ Use this skill for repeatable model-iteration work in this repository.
   active spec metadata, `candidate_snapshot.py`, model string quality, and
   performance-agentic-interpretability frontier position. Stop after
   recommending the next iteration unless the user asks to run it.
+- Commit: if the iteration is kept, commit the candidate change on the current
+  `project/` branch with one modeling hypothesis per commit.
 
 ## Guardrails
 
@@ -85,3 +92,6 @@ Use this skill for repeatable model-iteration work in this repository.
   transformations, helper functions, custom transformers, additive components,
   and internal model classes belong there when they serve one clear candidate
   hypothesis.
+- Use commit history as the experiment path: one candidate improvement equals
+  one commit on the project branch. Create separate branches only when the user
+  explicitly asks for branch-based isolation.

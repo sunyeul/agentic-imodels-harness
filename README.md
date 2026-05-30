@@ -61,4 +61,9 @@ The usual loop is:
 2. design one candidate-model change
 3. run the experiment
 4. inspect the leaderboard and report
-5. analyze the result and choose the next single experiment
+5. commit the retained candidate improvement on the project branch
+6. analyze the result and choose the next single experiment
+
+Candidate iteration normally stays on the long-lived `project/<project-name>`
+branch. Use one commit per modeling hypothesis so the commit history records
+the automated-research search path.
