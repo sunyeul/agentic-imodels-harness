@@ -56,3 +56,10 @@ missing, or when a user asks for the quickstart path.
   or code generator unless the user explicitly asks for one.
 - Do not tune models or interpret scores beyond confirming the harness works.
 - Do not delete existing leaderboard or run artifacts unless the user explicitly asks for a clean reset.
+
+## Scaffolding a New Project
+
+When the user wants to create a new project under `projects/`, use the
+`agentic-imodels-scaffold-project` skill instead of hand-writing project files.
+That skill owns copying the sample project structure, validating the new project
+name, and printing the follow-up smoke/check command.
