@@ -9,6 +9,12 @@ feature effects, sensitivity, counterfactual changes, and learned structure.
 
 Allowed context only:
 
+If the task names a LoopRun or provides an `input_manifest.json`, treat that
+manifest as the authoritative context boundary. Inspect only files listed in the
+matching `agent_input_bundle/iteration_<n>/input_manifest.json`, plus the loop
+workspace candidate file named by `loop_manifest.json`. Do not inspect the
+project-wide `results/` directory during a LoopRun iteration.
+
 - `.codex/skills/agentic-imodels-toy-experiment/references/experiment-rules.md`
 - `.codex/skills/agentic-imodels-toy-experiment/references/scoring-contract.md`
 - `projects/synthetic_regression/spec.py`
@@ -31,7 +37,8 @@ Comparable run selection:
 
 Constraints:
 
-- Edit only `projects/synthetic_regression/experiments/candidate_model.py`.
+- Edit only `projects/synthetic_regression/experiments/candidate_model.py`, or
+  the LoopRun workspace `candidate_model.py` when a LoopRun manifest is active.
 - Treat the current `project/` branch as the experiment path. Do not create a
   separate experiment branch unless the user explicitly asks.
 - Design one modeling hypothesis per iteration so the retained change can be

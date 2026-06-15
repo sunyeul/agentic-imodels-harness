@@ -14,6 +14,10 @@ The harness owns fairness and repeatability.
   comparable run artifacts. It must not read raw public competition files while
   designing a candidate, and must not hand-code transformations discovered from
   benchmark internals.
+- During a LoopRun iteration, the condition-specific
+  `agent_input_bundle/iteration_<n>/input_manifest.json` is the authoritative
+  context boundary. The designing agent must inspect only files listed in that
+  manifest and must edit only the loop workspace candidate file.
 - Comparable runs are successful rows with the same `project_id`, `spec_name`,
   `primary_metric`, and `primary_metric_direction`. Use the earliest comparable
   success as baseline and the latest three comparable successes as recent
