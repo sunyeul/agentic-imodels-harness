@@ -28,11 +28,14 @@ projects/*/data/*
 
 # Generated project-scoped experiment outputs
 projects/*/results/leaderboard.csv
+projects/*/results/loop_runs/*
 projects/*/results/runs/*
 projects/*/results/submissions/*
 !projects/*/results/
+!projects/*/results/loop_runs/
 !projects/*/results/runs/
 !projects/*/results/submissions/
+!projects/*/results/loop_runs/.gitkeep
 !projects/*/results/runs/.gitkeep
 !projects/*/results/submissions/.gitkeep
 

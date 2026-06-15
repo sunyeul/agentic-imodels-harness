@@ -63,6 +63,15 @@ class EvaluationResult:
     metrics: dict[str, float]
     result_metrics: dict[str, float]
     artifact_paths: dict[str, str]
+    loop_run_id: str = ""
+    condition: str = ""
+    iteration_index: int | None = None
+    budget: int | None = None
+    agent_model: str = ""
+    baseline_commit: str = ""
+    baseline_candidate_sha256: str = ""
+    candidate_path: str = ""
+    agent_input_manifest_path: str = ""
     error_traceback_path: str = ""
     error: str = ""
 
@@ -117,6 +126,43 @@ def _load_candidate_class(
         raise CandidateContractError(f"{module_name} must define CandidateModel")
     candidate_class: Any = module.CandidateModel
     return candidate_class
+
+
+def _load_candidate_class_from_path(
+    candidate_path: str | Path,
+    *,
+    forbidden_source_fragments: tuple[str, ...],
+) -> tuple[str, type[BaseCandidateModel]]:
+    path = Path(candidate_path).resolve()
+    source = path.read_text()
+    forbidden_hits = [
+        fragment for fragment in forbidden_source_fragments if fragment in source
+    ]
+    if forbidden_hits:
+        raise CandidateContractError(
+            "CandidateModel must not reference competition data files, "
+            "dataset loaders, or benchmark metadata. Forbidden fragments: "
+            + ", ".join(forbidden_hits)
+        )
+
+    module_hash = hashlib.sha256(str(path).encode()).hexdigest()[:16]
+    module_name = f"_toy_imodels_loop_candidate_{module_hash}"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise CandidateContractError(f"Cannot import candidate from {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules.pop(module_name, None)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        sys.modules.pop(module_name, None)
+        raise
+
+    if not hasattr(module, "CandidateModel"):
+        raise CandidateContractError(f"{path} must define CandidateModel")
+    candidate_class: Any = module.CandidateModel
+    return module_name, candidate_class
 
 
 def _candidate_source_before_import(
@@ -304,7 +350,9 @@ def _write_run_metadata(
     fold_metrics_path: Path,
     candidate_snapshot_path: Path,
     artifact_paths: dict[str, str],
+    loop_metadata: dict[str, object] | None = None,
 ) -> Path:
+    loop_metadata = loop_metadata or {}
     return _write_json_artifact(
         run_dir / "run_metadata.json",
         {
@@ -316,6 +364,7 @@ def _write_run_metadata(
             "git_commit": git_provenance.git_commit,
             "git_parent_commit": git_provenance.git_parent_commit,
             "git_dirty": git_provenance.git_dirty,
+            **loop_metadata,
             "spec_name": spec_metadata["spec_name"],
             "primary_metric": spec_metadata["primary_metric"],
             "primary_metric_direction": spec_metadata["primary_metric_direction"],
@@ -348,11 +397,21 @@ def run_experiment(
     *,
     project: Project,
     candidate_module: str | None = None,
+    candidate_path: str | Path | None = None,
     run_id: str | None = None,
     import_path: list[Path] | None = None,
+    loop_run_id: str | None = None,
+    condition: str | None = None,
+    iteration_index: int | None = None,
+    budget: int | None = None,
+    agent_model: str | None = None,
+    baseline_commit: str | None = None,
+    baseline_candidate_sha256: str | None = None,
+    agent_input_manifest_path: str | Path | None = None,
 ) -> EvaluationResult:
     run_id = run_id or _make_run_id()
     candidate_module = candidate_module or project.default_candidate_module
+    candidate_path_value = str(Path(candidate_path).resolve()) if candidate_path else ""
     evaluation_spec = project.spec
     spec_metadata = evaluation_spec.report_metadata()
     cv_n_splits = cast(int, spec_metadata["cv_n_splits"])
@@ -366,11 +425,17 @@ def run_experiment(
     runs_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        candidate_class = _load_candidate_class(
-            candidate_module,
-            forbidden_source_fragments=project.forbidden_candidate_source_fragments,
-            import_path=import_path,
-        )
+        if candidate_path is not None:
+            candidate_module, candidate_class = _load_candidate_class_from_path(
+                candidate_path,
+                forbidden_source_fragments=project.forbidden_candidate_source_fragments,
+            )
+        else:
+            candidate_class = _load_candidate_class(
+                candidate_module,
+                forbidden_source_fragments=project.forbidden_candidate_source_fragments,
+                import_path=import_path,
+            )
         evaluation_data = project.load_data(project.data_dir)
         cv_metrics, fold_records, oof_predictions = _cross_validate_candidate(
             candidate_class,
@@ -423,6 +488,21 @@ def run_experiment(
             submissions_dir, run_id, evaluation_data, test_pred
         )
         artifact_paths["submission_path"] = str(submission_path)
+        loop_metadata = {
+            "loop_run_id": loop_run_id or "",
+            "condition": condition or "",
+            "iteration_index": iteration_index,
+            "budget": budget,
+            "agent_model": agent_model or "",
+            "baseline_commit": baseline_commit or "",
+            "baseline_candidate_sha256": baseline_candidate_sha256 or "",
+            "candidate_path": candidate_path_value,
+            "agent_input_manifest_path": (
+                str(Path(agent_input_manifest_path).resolve())
+                if agent_input_manifest_path
+                else ""
+            ),
+        }
         planned_run_metadata_path = runs_dir / "run_metadata.json"
         report_path = write_run_report(
             runs_dir,
@@ -444,7 +524,11 @@ def run_experiment(
             diagnostics_path=diagnostics_path,
             run_metadata_path=planned_run_metadata_path,
             candidate_snapshot_path=candidate_snapshot_path,
-            next_candidate_path=f"{candidate_module.replace('.', '/')}.py",
+            next_candidate_path=(
+                candidate_path_value
+                if candidate_path_value
+                else f"{candidate_module.replace('.', '/')}.py"
+            ),
         )
         run_metadata_path = _write_run_metadata(
             runs_dir,
@@ -459,6 +543,7 @@ def run_experiment(
             fold_metrics_path=fold_metrics_path,
             candidate_snapshot_path=candidate_snapshot_path,
             artifact_paths=artifact_paths,
+            loop_metadata=loop_metadata,
         )
 
         result = EvaluationResult(
@@ -480,6 +565,15 @@ def run_experiment(
             fold_metrics_path=str(fold_metrics_path),
             run_metadata_path=str(run_metadata_path),
             candidate_snapshot_path=str(candidate_snapshot_path),
+            loop_run_id=loop_metadata["loop_run_id"],
+            condition=loop_metadata["condition"],
+            iteration_index=iteration_index,
+            budget=budget,
+            agent_model=loop_metadata["agent_model"],
+            baseline_commit=loop_metadata["baseline_commit"],
+            baseline_candidate_sha256=loop_metadata["baseline_candidate_sha256"],
+            candidate_path=candidate_path_value,
+            agent_input_manifest_path=loop_metadata["agent_input_manifest_path"],
             metrics=cv_metrics,
             result_metrics=result_metrics,
             artifact_paths=artifact_paths,
@@ -529,6 +623,19 @@ def run_experiment(
                 "project_id": project.project_id,
                 "candidate_module": candidate_module,
                 "model_name": candidate_module,
+                "loop_run_id": loop_run_id or "",
+                "condition": condition or "",
+                "iteration_index": iteration_index,
+                "budget": budget,
+                "agent_model": agent_model or "",
+                "baseline_commit": baseline_commit or "",
+                "baseline_candidate_sha256": baseline_candidate_sha256 or "",
+                "candidate_path": candidate_path_value,
+                "agent_input_manifest_path": (
+                    str(Path(agent_input_manifest_path).resolve())
+                    if agent_input_manifest_path
+                    else ""
+                ),
                 "status": "contract_error",
                 "error_traceback_path": str(error_traceback_path),
                 "error": str(exc),
@@ -545,6 +652,19 @@ def run_experiment(
                 "project_id": project.project_id,
                 "candidate_module": candidate_module,
                 "model_name": candidate_module,
+                "loop_run_id": loop_run_id or "",
+                "condition": condition or "",
+                "iteration_index": iteration_index,
+                "budget": budget,
+                "agent_model": agent_model or "",
+                "baseline_commit": baseline_commit or "",
+                "baseline_candidate_sha256": baseline_candidate_sha256 or "",
+                "candidate_path": candidate_path_value,
+                "agent_input_manifest_path": (
+                    str(Path(agent_input_manifest_path).resolve())
+                    if agent_input_manifest_path
+                    else ""
+                ),
                 "status": "error",
                 "error_traceback_path": str(error_traceback_path),
                 "error": str(exc),

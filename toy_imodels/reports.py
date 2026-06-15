@@ -85,6 +85,43 @@ def write_run_report(
     return report_path
 
 
+def write_agent_view_report(
+    source_report_path: str | Path,
+    target_report_path: str | Path,
+    *,
+    include_model_string: bool,
+) -> Path:
+    """Write the report an agent is allowed to inspect for a condition."""
+
+    source_path = Path(source_report_path)
+    target_path = Path(target_report_path)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    lines = source_path.read_text().splitlines()
+    if not include_model_string:
+        lines = _remove_section(lines, "## Model string")
+        lines = [
+            line
+            for line in lines
+            if "Candidate snapshot:" not in line
+            and "candidate_snapshot.py" not in line
+            and "interpretability_packet.json" not in line
+        ]
+    target_path.write_text("\n".join(lines).rstrip() + "\n")
+    return target_path
+
+
+def _remove_section(lines: list[str], heading: str) -> list[str]:
+    if heading not in lines:
+        return lines
+    start = lines.index(heading)
+    end = len(lines)
+    for index in range(start + 1, len(lines)):
+        if lines[index].startswith("## "):
+            end = index
+            break
+    return [*lines[:start], *lines[end:]]
+
+
 def apply_interpretability_judgment_to_report(
     report_path: str | Path,
     *,

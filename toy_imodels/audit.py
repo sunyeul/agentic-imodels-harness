@@ -59,6 +59,8 @@ def verify_experiment_run(
         _check_journal(results_path, target_run_id),
         _check_interpretability_judgment(results_path, target),
     ]
+    if metadata.get("loop_run_id") or metadata.get("condition"):
+        findings.append(_check_condition_fairness(metadata))
     return findings
 
 
@@ -163,6 +165,21 @@ def _check_snapshot_hash(metadata: dict[str, Any]) -> AuditFinding:
 
 
 def _check_active_candidate_hash(metadata: dict[str, Any]) -> AuditFinding:
+    candidate_path = str(metadata.get("candidate_path", ""))
+    if candidate_path:
+        path = Path(candidate_path)
+        if not path.is_file():
+            return AuditFinding("active_candidate_hash", False, f"missing {path}")
+        expected = str(metadata.get("candidate_source_sha256", ""))
+        actual = sha256_text(path.read_text())
+        if actual != expected:
+            return AuditFinding(
+                "active_candidate_hash",
+                False,
+                f"active candidate hash {actual} does not match run {expected}",
+            )
+        return AuditFinding("active_candidate_hash", True, actual)
+
     module = str(metadata.get("candidate_module", ""))
     if not module:
         return AuditFinding(
@@ -188,6 +205,59 @@ def _check_active_candidate_hash(metadata: dict[str, Any]) -> AuditFinding:
             f"active candidate hash {actual} does not match run {expected}",
         )
     return AuditFinding("active_candidate_hash", True, actual)
+
+
+def _check_condition_fairness(metadata: dict[str, Any]) -> AuditFinding:
+    condition = str(metadata.get("condition", ""))
+    manifest_value = str(metadata.get("agent_input_manifest_path", ""))
+    if condition not in {"blind", "representation"}:
+        return AuditFinding(
+            "condition_fairness",
+            False,
+            f"unknown condition {condition}",
+        )
+    if not manifest_value:
+        return AuditFinding(
+            "condition_fairness",
+            False,
+            "missing agent_input_manifest_path",
+        )
+    manifest_path = Path(manifest_value)
+    if not manifest_path.exists():
+        return AuditFinding(
+            "condition_fairness",
+            False,
+            f"missing {manifest_path}",
+        )
+    payload = json.loads(manifest_path.read_text())
+    if payload.get("condition") != condition:
+        return AuditFinding(
+            "condition_fairness",
+            False,
+            f"manifest condition {payload.get('condition')} != {condition}",
+        )
+    if condition == "blind":
+        bundle_text = "\n".join(
+            path.read_text(errors="ignore")
+            for path in manifest_path.parent.rglob("*")
+            if path.is_file() and path.name != "input_manifest.json"
+        )
+        forbidden = [
+            term
+            for term in (
+                "## Model string",
+                "interpretability_packet",
+                "candidate_snapshot",
+            )
+            if term in bundle_text
+        ]
+        if forbidden:
+            return AuditFinding(
+                "condition_fairness",
+                False,
+                "blind bundle contains forbidden terms: " + ", ".join(forbidden),
+            )
+    return AuditFinding("condition_fairness", True, condition)
 
 
 def _check_active_spec(

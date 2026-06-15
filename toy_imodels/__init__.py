@@ -4,6 +4,7 @@ __all__ = [
     "audit",
     "interpretability",
     "leaderboard",
+    "loops",
     "metrics",
     "provenance",
     "reports",
