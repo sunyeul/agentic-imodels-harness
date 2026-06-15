@@ -3,7 +3,7 @@
 The harness owns fairness and repeatability.
 
 - Candidate code may learn only from `X` and `y` passed to `fit`.
-- Candidate code must not read `projects/synthetic_regression/data/valid.csv` or test targets.
+- Candidate code must not read `projects/<project_name>/data/valid.csv` or test targets.
 - Candidate runtime must not perform filesystem or network I/O from `fit`,
   `predict`, or `__str__`.
 - Candidate design must not inspect or encode benchmark generator code, hidden
@@ -25,14 +25,14 @@ The harness owns fairness and repeatability.
 - If the experiment defines a custom primary score, optimize that fixed harness
   score instead of RMSE while still reporting RMSE as a diagnostic metric.
 - Failed runs should remain visible in the leaderboard.
-- The default editable surface is `projects/synthetic_regression/experiments/candidate_model.py`.
+- The default editable surface is `projects/<project_name>/experiments/candidate_model.py`.
 - Runtime harness files under `toy_imodels/` are stable unless the user asks to
   change the experiment design.
 - Custom scoring logic is part of the runtime harness. Do not move it into the
   editable candidate or let candidate code special-case the scorer directly.
 - User-requested changes to CV strategy or primary scoring should be made
   through the project `EvaluationSpec` layer in
-  `projects/synthetic_regression/spec.py` whenever possible.
+  `projects/<project_name>/spec.py` whenever possible.
 - Interpretability scoring belongs to the fixed harness under
   `toy_imodels/interpretability/`.
 
@@ -60,7 +60,7 @@ explore modeling and representation choices, including:
   another agent reason about prediction behavior
 
 Use the implementation structure that best serves the hypothesis inside
-`projects/synthetic_regression/experiments/candidate_model.py`: compose sklearn pipelines, add helper
+`projects/<project_name>/experiments/candidate_model.py`: compose sklearn pipelines, add helper
 functions, define custom transformers, generate bases, store additive
 components, or introduce internal model classes when those mechanisms make the
 candidate more predictive and more useful to an interpreting agent.

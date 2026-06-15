@@ -1,6 +1,6 @@
 ---
 name: agentic-imodels-toy-experiment
-description: Use when running or improving the toy AGENTIC-IMODELS single-dataset experiment loop, especially when iterating on projects/synthetic_regression/experiments/candidate_model.py.
+description: Use when running or improving a toy AGENTIC-IMODELS single-dataset experiment loop for any project under projects/, especially when iterating on a selected project's experiments/candidate_model.py.
 ---
 
 # Agentic Imodels Toy Experiment
@@ -20,6 +20,8 @@ Use this skill for repeatable model-iteration work in this repository.
      experiments.
    - Use the project's long-lived `project/<project-name>` branch for candidate
      iteration. Do not create per-experiment branches by default.
+   - Let `<project_name>` be the selected package-safe project directory under
+     `projects/`. Derive project paths and module commands from that name.
 4. Inspect the selected project's evaluation spec file before proposing a new model. Note
    the current `EvaluationSpec.name`, `primary_metric`,
    `primary_metric_direction`, CV strategy metadata, metric aggregation policy,
@@ -34,11 +36,11 @@ Use this skill for repeatable model-iteration work in this repository.
    frontier. Treat feature engineering, learned basis construction, additive
    structure, pruning, calibration, ensembling, and agent-readable rendering as
    searchable model-design dimensions.
-7. Edit only `projects/synthetic_regression/experiments/candidate_model.py` unless the user explicitly asks to change the harness.
-8. Run `uv run python -m projects.synthetic_regression.run_experiment`.
-9. Inspect `projects/synthetic_regression/results/leaderboard.csv`, the latest run report, and
+7. Edit only `projects/<project_name>/experiments/candidate_model.py` unless the user explicitly asks to change the harness.
+8. Run `uv run python -m projects.<project_name>.run_experiment`.
+9. Inspect `projects/<project_name>/results/leaderboard.csv`, the latest run report, and
   `interpretability_packet.json`. Also inspect the matching tracked journal
-  under `projects/synthetic_regression/experiments/journal/`. If no agent
+  under `projects/<project_name>/experiments/journal/`. If no agent
   judgment exists, recommend using `.codex/agents/interpretability-judge.md`;
   if a draft judgment exists, apply it through the fixed harness with
   `apply_interpretability_judgment()` so the leaderboard, report, audit artifact,
@@ -57,13 +59,13 @@ Use this skill for repeatable model-iteration work in this repository.
 
 ## PDCA Run Artifact Usage
 
-- Plan: inspect previous `projects/synthetic_regression/results/leaderboard.csv` rows and relevant
-  `projects/synthetic_regression/results/runs/<run_id>/` artifacts before choosing one modeling hypothesis.
+- Plan: inspect previous `projects/<project_name>/results/leaderboard.csv` rows and relevant
+  `projects/<project_name>/results/runs/<run_id>/` artifacts before choosing one modeling hypothesis.
   Baseline comparisons use the earliest successful run with the same project,
   spec, primary metric, and primary metric direction. Name the candidate
   improvement direction explicitly, and connect it to the
   performance-agentic-interpretability frontier.
-- Do: edit only `projects/synthetic_regression/experiments/candidate_model.py` and run the fixed harness.
+- Do: edit only `projects/<project_name>/experiments/candidate_model.py` and run the fixed harness.
 - Check: inspect the current leaderboard row, `report.md`, `fold_metrics.json`,
   `run_metadata.json`, interpretability artifacts, and any `error_traceback.txt`.
   Treat interpretability as pending until `apply_interpretability_judgment()`
@@ -84,8 +86,8 @@ Use this skill for repeatable model-iteration work in this repository.
 
 - Do not modify data files, scoring, or leaderboard logic to improve scores.
 - Treat the selected project's spec file as the project policy surface for
-  user-requested evaluation changes. For the current toy project this is
-  `projects/synthetic_regression/spec.py`. Do not change it during model
+  user-requested evaluation changes. This is usually
+  `projects/<project_name>/spec.py`. Do not change it during model
   iteration unless the user explicitly asks to change the experiment policy.
 - Do not use validation or test targets inside candidate code.
 - Do not inspect raw public competition files, hidden targets, generator code,
@@ -95,7 +97,7 @@ Use this skill for repeatable model-iteration work in this repository.
   provide `model_name`, `notes`, and `__str__`; the fixed harness owns log
   writing and artifact persistence.
 - Keep `__str__` informative enough for another agent to reason about the model.
-- During candidate iteration, keep edits inside `projects/synthetic_regression/experiments/candidate_model.py`.
+- During candidate iteration, keep edits inside `projects/<project_name>/experiments/candidate_model.py`.
   That file is the model-design search space: feature engineering, learned
   transformations, helper functions, custom transformers, additive components,
   and internal model classes belong there when they serve one clear candidate

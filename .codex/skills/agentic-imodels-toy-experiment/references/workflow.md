@@ -1,14 +1,16 @@
 # Toy Experiment Workflow
 
-1. Verify the committed public competition data loads:
-   `uv run python -m projects.synthetic_regression.datasets`.
-2. Resolve the target project before running:
+1. Resolve the target project before running:
    - If the user named a project, use it.
    - If exactly one project is available, state that project and its default spec.
    - If multiple projects are available and the user did not name one, list them
      and ask the user to choose.
    - Stay on the selected project's long-lived `project/` branch for candidate
      iteration unless the user explicitly asks for a separate branch.
+   - Let `<project_name>` be the selected package-safe project directory under
+     `projects/`. Derive project paths and module commands from that name.
+2. Verify the committed public competition data loads:
+   `uv run python -m projects.<project_name>.datasets`.
 3. Inspect the selected project's evaluation spec file and note the active
    `EvaluationSpec`, declared primary metric, primary metric direction, CV
    strategy, aggregation outputs, and report metric lines.
@@ -18,11 +20,11 @@
    Use the latest three successful rows from that same comparable set as recent
    context. Do not inspect benchmark internals, hidden targets, or any data
    generation code when designing the next candidate.
-5. Run the current candidate: `uv run python -m projects.synthetic_regression.run_experiment`.
-6. Read `projects/synthetic_regression/results/leaderboard.csv`, including `spec_name`, `primary_metric`,
+5. Run the current candidate: `uv run python -m projects.<project_name>.run_experiment`.
+6. Read `projects/<project_name>/results/leaderboard.csv`, including `spec_name`, `primary_metric`,
    `primary_metric_direction`, interpretability score, and any custom metric
    columns.
-7. Open the latest `projects/synthetic_regression/results/runs/<run_id>/report.md` and
+7. Open the latest `projects/<project_name>/results/runs/<run_id>/report.md` and
    `interpretability_packet.json`.
 8. If no agent judgment exists, recommend using
    `.codex/agents/interpretability-judge.md`. If a draft judgment exists, apply
@@ -35,7 +37,7 @@
     should name the improvement direction being explored, such as feature
     engineering, learned basis construction, additive structure, pruning,
     calibration, ensembling, or a clearer agent-readable model representation.
-11. Edit only `projects/synthetic_regression/experiments/candidate_model.py`.
+11. Edit only `projects/<project_name>/experiments/candidate_model.py`.
 12. Re-run the experiment and compare scores. Recommend the next iteration, but
     wait for the user before running it.
 13. If the user keeps the change, commit exactly that candidate improvement on

@@ -32,7 +32,7 @@ Custom scoring:
 - A project may define a domain-specific scorer as the primary or secondary
   score.
 - Custom scorers must live in the project evaluation spec, usually under
-  `projects/synthetic_regression/spec.py`, not in `projects/synthetic_regression/experiments/candidate_model.py`.
+  `projects/<project_name>/spec.py`, not in `projects/<project_name>/experiments/candidate_model.py`.
 - Custom CV strategies and scoring policy should be represented through an
   `EvaluationSpec` so user-requested experiment policy changes stay in one
   harness-owned layer.
@@ -48,6 +48,6 @@ Custom scoring:
 
 Artifacts:
 
-- `projects/synthetic_regression/results/leaderboard.csv`
-- `projects/synthetic_regression/results/submissions/<run_id>.csv`
-- `projects/synthetic_regression/results/runs/<run_id>/report.md`
+- `projects/<project_name>/results/leaderboard.csv`
+- `projects/<project_name>/results/submissions/<run_id>.csv`
+- `projects/<project_name>/results/runs/<run_id>/report.md`
