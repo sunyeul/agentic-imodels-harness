@@ -25,6 +25,14 @@ from toy_imodels.interpretability import (
     validate_interpretability_judgment,
 )
 from toy_imodels.leaderboard import append_result, update_result
+from toy_imodels.loops import (
+    compare_loop_runs,
+    condition_spec,
+    init_loop_run,
+    prepare_iteration,
+    record_iteration,
+    verify_loop_run,
+)
 from toy_imodels.provenance import sha256_file
 from toy_imodels.spec import CVStrategy, EvaluationSpec
 
@@ -260,7 +268,6 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
         "max_abs_bin_residual_mean",
         "bins",
     } <= set(first_feature)
-
     candidate_snapshot = Path(result.candidate_snapshot_path).read_text()
     assert "class CandidateModel" in candidate_snapshot
 
@@ -307,6 +314,213 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert "calibration_guide" in packet
     assert "high" in packet["calibration_guide"]["prediction"]
     assert "output_schema" in packet
+
+
+def test_condition_spec_defaults_separate_blind_and_representation():
+    representation = condition_spec()
+    blind = condition_spec("blind")
+
+    assert representation.name == "representation"
+    assert representation.include_model_string
+    assert representation.include_interpretability_packet
+    assert "interpretability_packet" in representation.allowed_artifacts
+    assert blind.name == "blind"
+    assert not blind.include_model_string
+    assert not blind.include_interpretability_packet
+    assert "interpretability_packet" in blind.forbidden_artifacts
+    assert "candidate_snapshot" in blind.forbidden_artifacts
+
+
+def test_run_experiment_can_evaluate_isolated_candidate_path(tmp_path):
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    workspace = tmp_path / "candidate_workspace"
+    workspace.mkdir()
+    candidate_path = workspace / "candidate_model.py"
+    source_path = Path("projects/synthetic_regression/experiments/candidate_model.py")
+    shutil.copy2(source_path, candidate_path)
+
+    result = run_experiment(
+        project=project,
+        candidate_path=candidate_path,
+        run_id="path-candidate-run",
+        loop_run_id="loop-path",
+        condition="representation",
+        iteration_index=1,
+        budget=5,
+        agent_model="test-agent",
+        baseline_commit="baseline",
+        baseline_candidate_sha256=sha256_file(source_path),
+        agent_input_manifest_path=tmp_path / "input_manifest.json",
+    )
+
+    metadata = json.loads(Path(result.run_metadata_path).read_text())
+    leaderboard = pd.read_csv(tmp_path / "results" / "leaderboard.csv")
+    assert result.candidate_path == str(candidate_path.resolve())
+    assert result.candidate_module.startswith("_toy_imodels_loop_candidate_")
+    assert metadata["candidate_path"] == str(candidate_path.resolve())
+    assert metadata["loop_run_id"] == "loop-path"
+    assert metadata["condition"] == "representation"
+    assert metadata["iteration_index"] == 1
+    assert metadata["budget"] == 5
+    assert leaderboard.loc[0, "candidate_path"] == str(candidate_path.resolve())
+    assert leaderboard.loc[0, "loop_run_id"] == "loop-path"
+
+
+def test_blind_loop_run_sanitizes_agent_input_bundle(tmp_path):
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    init_loop_run(
+        project,
+        condition="blind",
+        budget=2,
+        agent_model="test-agent",
+        loop_run_id="blind-loop",
+    )
+    first_manifest_path = prepare_iteration(
+        tmp_path / "results",
+        "blind-loop",
+        iteration_index=1,
+    )
+    result = record_iteration(
+        project, "blind-loop", iteration_index=1, run_id="blind-1"
+    )
+    second_manifest_path = prepare_iteration(
+        tmp_path / "results",
+        "blind-loop",
+        iteration_index=2,
+    )
+
+    assert first_manifest_path.exists()
+    assert result.condition == "blind"
+    bundle_text = "\n".join(
+        path.read_text(errors="ignore")
+        for path in second_manifest_path.parent.rglob("*")
+        if path.is_file() and path.name != "input_manifest.json"
+    )
+    assert "## Model string" not in bundle_text
+    assert "interpretability_packet" not in bundle_text
+    assert "candidate_snapshot" not in bundle_text
+    findings = verify_loop_run(tmp_path / "results", "blind-loop")
+    assert all(finding.startswith("PASS") for finding in findings)
+
+
+def test_representation_loop_run_includes_representation_artifacts(tmp_path):
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    init_loop_run(
+        project,
+        condition="representation",
+        budget=2,
+        agent_model="test-agent",
+        loop_run_id="representation-loop",
+    )
+    record_iteration(
+        project,
+        "representation-loop",
+        iteration_index=1,
+        run_id="representation-1",
+    )
+    manifest_path = prepare_iteration(
+        tmp_path / "results",
+        "representation-loop",
+        iteration_index=2,
+    )
+
+    bundle_text = "\n".join(
+        path.read_text(errors="ignore")
+        for path in manifest_path.parent.rglob("*")
+        if path.is_file()
+    )
+    assert "## Model string" in bundle_text
+    assert "interpretability_packet" in bundle_text
+    assert (manifest_path.parent / "interpretability_packet.json").exists()
+
+
+def test_record_iteration_records_failed_candidate_edit(tmp_path):
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    init_loop_run(
+        project,
+        condition="blind",
+        budget=1,
+        agent_model="test-agent",
+        loop_run_id="failed-loop",
+    )
+    manifest_path = (
+        tmp_path / "results" / "loop_runs" / "failed-loop" / "loop_manifest.json"
+    )
+    manifest = json.loads(manifest_path.read_text())
+    Path(manifest["candidate_workspace_path"]).write_text("# metadata.json\n")
+
+    with pytest.raises(Exception, match="metadata.json"):
+        record_iteration(project, "failed-loop", iteration_index=1, run_id="failed-1")
+
+    iterations = pd.read_csv(
+        tmp_path / "results" / "loop_runs" / "failed-loop" / "iterations.csv"
+    )
+    assert iterations.loc[0, "evaluation_run_id"] == "failed-1"
+    assert iterations.loc[0, "status"] == "error"
+    assert pd.isna(iterations.loc[0, "primary_metric_value"])
+
+
+def test_compare_loop_runs_requires_compatible_manifests_and_summarizes(tmp_path):
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    init_loop_run(
+        project,
+        condition="blind",
+        budget=1,
+        agent_model="test-agent",
+        loop_run_id="blind-loop",
+    )
+    init_loop_run(
+        project,
+        condition="representation",
+        budget=1,
+        agent_model="test-agent",
+        loop_run_id="representation-loop",
+    )
+    record_iteration(project, "blind-loop", iteration_index=1, run_id="blind-1")
+    record_iteration(
+        project,
+        "representation-loop",
+        iteration_index=1,
+        run_id="representation-1",
+    )
+
+    comparison = compare_loop_runs(
+        tmp_path / "results",
+        "blind-loop",
+        "representation-loop",
+    )
+    assert comparison["left"]["condition"] == "blind"
+    assert comparison["right"]["condition"] == "representation"
+    assert comparison["left"]["best_score_at_budget"] > 0
+    assert comparison["right"]["failed_edit_rate"] == 0.0
+
+    manifest_path = (
+        tmp_path
+        / "results"
+        / "loop_runs"
+        / "representation-loop"
+        / "loop_manifest.json"
+    )
+    manifest = json.loads(manifest_path.read_text())
+    manifest["budget"] = 2
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    with pytest.raises(ValueError, match="budget"):
+        compare_loop_runs(tmp_path / "results", "blind-loop", "representation-loop")
 
 
 def test_candidate_model_does_not_encode_synthetic_oracle_structure():
