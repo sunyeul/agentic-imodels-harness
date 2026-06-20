@@ -1,5 +1,47 @@
 # Toy Experiment Workflow
 
+## Scope Selection
+
+Use the narrowest workflow that satisfies the user's request.
+
+- Setup or management only: resolve the project and branch, then run only the
+  requested setup, manifest, verification, comparison, or tracking-doc commands.
+  Do not inspect leaderboard rows, reports, candidate snapshots,
+  interpretability packets, raw data, hidden targets, generator/oracle
+  internals, or condition-specific bundles unless the plan explicitly lists
+  them as allowed.
+- Candidate design: start only when the task asks for a candidate proposal,
+  candidate edit, run interpretation, or frontier analysis, and the allowed
+  context has been prepared.
+- Comparison: compare only compatible successful runs after the relevant
+  conditions have stopped or exhausted their budgets. Do not design or edit
+  candidates in a final comparison session.
+
+## LoopRun Condition Sessions
+
+Condition-isolated LoopRun experiments are split by session role, not by branch.
+
+- Use one shared setup/management session for branch setup, loop
+  initialization, manifest compatibility checks, progress-table updates,
+  `prepare`, `verify`, and final `compare_loop_runs`.
+- Use a separate condition-specific design session for each condition and
+  iteration after `prepare` creates that iteration's `input_manifest.json`.
+- A condition-specific design session must inspect only its own
+  `input_manifest.json` and files listed in that manifest.
+- Candidate editing must be limited to the loop workspace candidate file
+  recorded in the loop manifest.
+- Do not reuse a design session across conditions. A `blind` session must never
+  inspect representation-only artifacts, and a `representation` session must not
+  carry its context into a later `blind` design step.
+- After a condition-specific `record` completes, return to setup/management
+  before preparing or designing the next iteration.
+
+Mandatory split points are after loop setup before the first condition design,
+after every `prepare` before candidate design, after every `record` before the
+next condition or iteration, and before final comparison.
+
+## Standard Candidate Iteration
+
 1. Resolve the target project before running:
    - If the user named a project, use it.
    - If exactly one project is available, state that project and its default spec.
@@ -42,3 +84,29 @@
     wait for the user before running it.
 13. If the user keeps the change, commit exactly that candidate improvement on
     the project branch. Use one commit per modeling hypothesis.
+
+## PDCA Run Artifact Usage
+
+- Plan: inspect previous `projects/<project_name>/results/leaderboard.csv` rows
+  and relevant `projects/<project_name>/results/runs/<run_id>/` artifacts before
+  choosing one modeling hypothesis. Baseline comparisons use the earliest
+  successful run with the same project, spec, primary metric, and primary metric
+  direction. Name the candidate improvement direction explicitly, and connect it
+  to the performance-agentic-interpretability frontier.
+- Do: edit only `projects/<project_name>/experiments/candidate_model.py` and run
+  the fixed harness.
+- Check: inspect the current leaderboard row, `report.md`, `fold_metrics.json`,
+  `run_metadata.json`, interpretability artifacts, and any
+  `error_traceback.txt`. Treat interpretability as pending until
+  `apply_interpretability_judgment()` has written the judgment, audit artifact,
+  leaderboard update, report update, and journal update.
+- Audit: run `task verify-experiment -- <run_id>` before retaining a candidate
+  to check Git provenance, candidate snapshot hash, active spec metadata,
+  protected harness/spec/data drift, comparable baseline, and the tracked
+  journal entry.
+- Act: choose the next single experiment using score movement, fold behavior,
+  active spec metadata, `candidate_snapshot.py`, model string quality, and
+  performance-agentic-interpretability frontier position. Stop after
+  recommending the next iteration unless the user asks to run it.
+- Commit: if the iteration is kept, commit the candidate change on the current
+  `project/` branch with one modeling hypothesis per commit.

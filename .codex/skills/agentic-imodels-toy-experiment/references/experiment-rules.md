@@ -18,6 +18,12 @@ The harness owns fairness and repeatability.
   `agent_input_bundle/iteration_<n>/input_manifest.json` is the authoritative
   context boundary. The designing agent must inspect only files listed in that
   manifest and must edit only the loop workspace candidate file.
+- Condition-isolated LoopRun experiments must split sessions by role:
+  setup/management sessions may initialize, prepare, verify, compare, and update
+  progress docs; condition-specific design sessions start only after `prepare`
+  creates that iteration's `input_manifest.json`; design sessions must not be
+  reused across conditions; after `record`, return to setup/management before
+  preparing or designing the next iteration.
 - Comparable runs are successful rows with the same `project_id`, `spec_name`,
   `primary_metric`, and `primary_metric_direction`. Use the earliest comparable
   success as baseline and the latest three comparable successes as recent
