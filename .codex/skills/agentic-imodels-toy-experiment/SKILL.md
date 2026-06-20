@@ -7,6 +7,8 @@ description: Use when running or improving a toy AGENTIC-IMODELS single-dataset 
 
 Use this skill for repeatable model-iteration work in this repository.
 
+Follow repo-wide role boundaries in `AGENTS.md` when present.
+
 ## Workflow
 
 1. Read `references/experiment-rules.md`.
@@ -52,7 +54,11 @@ Use this skill for repeatable model-iteration work in this repository.
    and whether interpretability still needs judgment before frontier analysis.
 11. Recommend the next single experiment, but do not run another iteration
     until the user chooses to continue.
-12. Use `.codex/agents/model-designer.md`, `.codex/agents/experiment-runner.md`, or `.codex/agents/result-analyst.md` for focused subagent work.
+12. Use `.codex/agents/experiment-planner.md`,
+    `.codex/agents/model-designer.md`,
+    `.codex/agents/experiment-runner.md`,
+    `.codex/agents/result-analyst.md`, or
+    `.codex/agents/experiment-auditor.md` for focused subagent work.
 13. When the user asks to persist an improvement, create exactly one commit for
     the single modeling hypothesis. Do not mix harness, spec, data, or docs
     changes into candidate-improvement commits.
