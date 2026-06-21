@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="420" viewBox="0 0 920 420" role="img" aria-labelledby="title desc">
+  <title id="title">Best score at budget by condition and sample</title>
+  <desc id="desc">Grouped bar chart of cv_rmse_mean. Blind bars are higher than representation bars in all three samples; lower values are better.</desc>
+  <rect width="920" height="420" fill="#ffffff"/>
+  <text x="460" y="24" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#172026">Best cv_rmse_mean at budget</text>
+  <text x="460" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#46535f">Primary metric: cv_rmse_mean, minimize</text>
+  <line x1="90" y1="320" x2="850" y2="320" stroke="#2c333a" stroke-width="1.2"/>
+  <line x1="90" y1="40" x2="90" y2="320" stroke="#2c333a" stroke-width="1.2"/>
+  <g font-family="Arial, sans-serif" font-size="11" fill="#46535f">
+    <line x1="85" y1="320" x2="850" y2="320" stroke="#d8dee4"/>
+    <text x="78" y="324" text-anchor="end">0.75</text>
+    <line x1="85" y1="264" x2="850" y2="264" stroke="#edf0f2"/>
+    <text x="78" y="268" text-anchor="end">0.80</text>
+    <line x1="85" y1="208" x2="850" y2="208" stroke="#edf0f2"/>
+    <text x="78" y="212" text-anchor="end">0.85</text>
+    <line x1="85" y1="152" x2="850" y2="152" stroke="#edf0f2"/>
+    <text x="78" y="156" text-anchor="end">0.90</text>
+    <line x1="85" y1="96" x2="850" y2="96" stroke="#edf0f2"/>
+    <text x="78" y="100" text-anchor="end">0.95</text>
+    <line x1="85" y1="40" x2="850" y2="40" stroke="#edf0f2"/>
+    <text x="78" y="44" text-anchor="end">1.00</text>
+  </g>
+  <text x="22" y="180" transform="rotate(-90 22 180)" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#46535f">cv_rmse_mean</text>
+  <g>
+    <rect x="160" y="208.1" width="36" height="111.9" fill="#2f7dd1"/>
+    <rect x="202" y="97.3" width="36" height="222.7" fill="#d0643c"/>
+    <rect x="390" y="275.8" width="36" height="44.2" fill="#2f7dd1"/>
+    <rect x="432" y="84.8" width="36" height="235.2" fill="#d0643c"/>
+    <rect x="620" y="209.6" width="36" height="110.4" fill="#2f7dd1"/>
+    <rect x="662" y="94.3" width="36" height="225.7" fill="#d0643c"/>
+  </g>
+  <g font-family="Arial, sans-serif" font-size="11" fill="#172026">
+    <text x="178" y="199" text-anchor="middle">0.850</text>
+    <text x="220" y="88" text-anchor="middle">0.949</text>
+    <text x="408" y="267" text-anchor="middle">0.789</text>
+    <text x="450" y="76" text-anchor="middle">0.960</text>
+    <text x="638" y="201" text-anchor="middle">0.849</text>
+    <text x="680" y="85" text-anchor="middle">0.952</text>
+  </g>
+  <g font-family="Arial, sans-serif" font-size="12" fill="#172026">
+    <text x="199" y="344" text-anchor="middle">bvr_20260620_001</text>
+    <text x="429" y="344" text-anchor="middle">bvr_20260620_002</text>
+    <text x="659" y="344" text-anchor="middle">bvr_20260621_001</text>
+  </g>
+  <g font-family="Arial, sans-serif" font-size="12" fill="#172026">
+    <rect x="320" y="374" width="14" height="14" fill="#2f7dd1"/>
+    <text x="340" y="386">representation</text>
+    <rect x="462" y="374" width="14" height="14" fill="#d0643c"/>
+    <text x="482" y="386">blind</text>
+  </g>
+</svg>
