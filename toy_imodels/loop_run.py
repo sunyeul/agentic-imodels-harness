@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from toy_imodels.loops import (
+    handoff_prompt_path,
     init_loop_run,
     prepare_iteration,
     record_iteration,
@@ -23,11 +24,20 @@ def main(argv: list[str] | None = None) -> int:
     init_parser.add_argument("--budget", required=True, type=int)
     init_parser.add_argument("--agent-model", required=True)
     init_parser.add_argument("--loop-run-id")
+    init_parser.add_argument("--experiment-name", default="")
+    init_parser.add_argument("--experiment-id", default="")
+    init_parser.add_argument("--results-dir")
 
     prepare_parser = subparsers.add_parser("prepare")
     prepare_parser.add_argument("loop_run_id")
     prepare_parser.add_argument("--iteration", required=True, type=int)
     prepare_parser.add_argument("--results-dir", required=True)
+
+    handoff_parser = subparsers.add_parser("handoff")
+    handoff_parser.add_argument("loop_run_id")
+    handoff_parser.add_argument("--iteration", required=True, type=int)
+    handoff_parser.add_argument("--results-dir", required=True)
+    handoff_parser.add_argument("--print", action="store_true")
 
     record_parser = subparsers.add_parser("record")
     record_parser.add_argument("loop_run_id")
@@ -42,13 +52,18 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     if args.command == "init":
-        project = _load_project(args.project_module)
+        project = _load_project(
+            args.project_module,
+            results_dir=Path(args.results_dir) if args.results_dir else None,
+        )
         manifest = init_loop_run(
             project,
             condition=args.condition,
             budget=args.budget,
             agent_model=args.agent_model,
             loop_run_id=args.loop_run_id,
+            experiment_name=args.experiment_name,
+            experiment_id=args.experiment_id,
         )
         print(manifest.loop_run_id)
         return 0
@@ -59,6 +74,14 @@ def main(argv: list[str] | None = None) -> int:
             iteration_index=args.iteration,
         )
         print(path)
+        return 0
+    if args.command == "handoff":
+        path = handoff_prompt_path(
+            args.results_dir,
+            args.loop_run_id,
+            iteration_index=args.iteration,
+        )
+        print(path.read_text() if args.print else path)
         return 0
     if args.command == "record":
         project = _load_project(args.project_module, results_dir=Path(args.results_dir))

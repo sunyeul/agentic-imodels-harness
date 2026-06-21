@@ -25,9 +25,11 @@ from toy_imodels.interpretability import (
     validate_interpretability_judgment,
 )
 from toy_imodels.leaderboard import append_result, update_result
+from toy_imodels.loop_run import main as loop_run_main
 from toy_imodels.loops import (
     compare_loop_runs,
     condition_spec,
+    handoff_prompt_path,
     init_loop_run,
     prepare_iteration,
     record_iteration,
@@ -271,7 +273,15 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     candidate_snapshot = Path(result.candidate_snapshot_path).read_text()
     assert "class CandidateModel" in candidate_snapshot
 
-    journal_path = tmp_path / "experiments" / "journal" / "test-run.md"
+    journal_path = (
+        tmp_path
+        / "experiments"
+        / "standalone"
+        / "instances"
+        / "default"
+        / "journals"
+        / "test-run.md"
+    )
     assert journal_path.exists()
     journal_text = journal_path.read_text()
     assert "# Experiment Journal: test-run" in journal_text
@@ -283,6 +293,9 @@ def test_run_experiment_evaluates_baseline_and_writes_artifacts(tmp_path):
     assert "Comparable baseline: test-run" in journal_text
     assert "Interpretability status: pending_agent_judgment" in journal_text
     assert "Interpretability score: NaN" in journal_text
+    assert "Pre-design rationale: N/A" in journal_text
+    assert "Design Rationale" in journal_text
+    assert "Outcome Review" in journal_text
     assert "Next Action" in journal_text
 
     packet_path = (
@@ -369,6 +382,95 @@ def test_run_experiment_can_evaluate_isolated_candidate_path(tmp_path):
     assert leaderboard.loc[0, "loop_run_id"] == "loop-path"
 
 
+def test_loop_run_init_cli_accepts_results_dir(tmp_path):
+    results_dir = tmp_path / "custom-results"
+
+    exit_code = loop_run_main(
+        [
+            "init",
+            "--project-module",
+            "projects.synthetic_regression:synthetic_regression_project",
+            "--condition",
+            "blind",
+            "--budget",
+            "1",
+            "--agent-model",
+            "test-agent",
+            "--loop-run-id",
+            "cli-loop",
+            "--results-dir",
+            str(results_dir),
+        ]
+    )
+
+    manifest_path = results_dir / "loop_runs" / "cli-loop" / "loop_manifest.json"
+    iterations_path = results_dir / "loop_runs" / "cli-loop" / "iterations.csv"
+    manifest = json.loads(manifest_path.read_text())
+    assert exit_code == 0
+    assert manifest["condition"] == "blind"
+    assert manifest["candidate_workspace_path"].startswith(str(results_dir))
+    assert iterations_path.exists()
+
+
+def test_loop_run_handoff_cli_prints_iteration_prompt(tmp_path, capsys):
+    results_dir = tmp_path / "custom-results"
+    exit_code = loop_run_main(
+        [
+            "init",
+            "--project-module",
+            "projects.synthetic_regression:synthetic_regression_project",
+            "--condition",
+            "blind",
+            "--budget",
+            "1",
+            "--agent-model",
+            "test-agent",
+            "--loop-run-id",
+            "cli-loop",
+            "--results-dir",
+            str(results_dir),
+        ]
+    )
+    assert exit_code == 0
+    capsys.readouterr()
+
+    exit_code = loop_run_main(
+        [
+            "handoff",
+            "cli-loop",
+            "--iteration",
+            "1",
+            "--results-dir",
+            str(results_dir),
+        ]
+    )
+    prompt_path = Path(capsys.readouterr().out.strip())
+    assert exit_code == 0
+    assert prompt_path.name == "design_handoff_prompt.md"
+    assert prompt_path.exists()
+
+    exit_code = loop_run_main(
+        [
+            "handoff",
+            "cli-loop",
+            "--iteration",
+            "1",
+            "--results-dir",
+            str(results_dir),
+            "--print",
+        ]
+    )
+    prompt_text = capsys.readouterr().out
+    assert exit_code == 0
+    assert "LoopRun Design Handoff" in prompt_text
+    assert "cli-loop" in prompt_text
+    assert "Input manifest:" in prompt_text
+    assert "## Pre-Design Rationale Template" in prompt_text
+    assert "Pre-design rationale artifact:" in prompt_text
+    assert "Representation-derived cues used:" in prompt_text
+    assert "N/A - forbidden by condition" in prompt_text
+
+
 def test_blind_loop_run_sanitizes_agent_input_bundle(tmp_path):
     project = synthetic_regression_project(
         data_dir=_copy_competition_data(tmp_path),
@@ -380,6 +482,15 @@ def test_blind_loop_run_sanitizes_agent_input_bundle(tmp_path):
         budget=2,
         agent_model="test-agent",
         loop_run_id="blind-loop",
+    )
+    manifest = json.loads(
+        (
+            tmp_path / "results" / "loop_runs" / "blind-loop" / "loop_manifest.json"
+        ).read_text()
+    )
+    Path(manifest["candidate_workspace_path"]).write_text(
+        Path(manifest["candidate_workspace_path"]).read_text()
+        + "\n# Blind loop candidate edit.\n"
     )
     first_manifest_path = prepare_iteration(
         tmp_path / "results",
@@ -396,17 +507,210 @@ def test_blind_loop_run_sanitizes_agent_input_bundle(tmp_path):
     )
 
     assert first_manifest_path.exists()
+    first_manifest = json.loads(first_manifest_path.read_text())
+    first_handoff_path = handoff_prompt_path(
+        tmp_path / "results",
+        "blind-loop",
+        iteration_index=1,
+    )
+    assert first_manifest["candidate_workspace_path"]
+    assert first_manifest["editable_files"][0]["artifact"] == "candidate_workspace"
+    assert Path(first_manifest["editable_files"][0]["path"]).exists()
+    assert first_handoff_path.exists()
+    assert str(first_manifest_path.resolve()) in first_handoff_path.read_text()
     assert result.condition == "blind"
+    second_manifest = json.loads(second_manifest_path.read_text())
+    assert (
+        second_manifest["candidate_workspace_path"]
+        == first_manifest["candidate_workspace_path"]
+    )
+    assert (
+        second_manifest["editable_files"][0]["path"]
+        == first_manifest["editable_files"][0]["path"]
+    )
+    assert (second_manifest_path.parent / "design_handoff_prompt.md").exists()
     bundle_text = "\n".join(
         path.read_text(errors="ignore")
         for path in second_manifest_path.parent.rglob("*")
-        if path.is_file() and path.name != "input_manifest.json"
+        if path.is_file()
+        and path.name not in {"input_manifest.json", "design_handoff_prompt.md"}
     )
     assert "## Model string" not in bundle_text
     assert "interpretability_packet" not in bundle_text
     assert "candidate_snapshot" not in bundle_text
     findings = verify_loop_run(tmp_path / "results", "blind-loop")
     assert all(finding.startswith("PASS") for finding in findings)
+
+
+def test_loop_run_records_journal_under_experiment_instance(tmp_path):
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    init_loop_run(
+        project,
+        condition="representation",
+        budget=1,
+        agent_model="test-agent",
+        loop_run_id="instance-loop",
+        experiment_name="comparison",
+        experiment_id="trial-1",
+    )
+
+    result = record_iteration(
+        project,
+        "instance-loop",
+        iteration_index=1,
+        run_id="instance-run-1",
+    )
+
+    journal_path = (
+        tmp_path
+        / "experiments"
+        / "comparison"
+        / "instances"
+        / "trial-1"
+        / "journals"
+        / "instance-run-1.md"
+    )
+    assert journal_path.exists()
+    assert not (
+        tmp_path
+        / "experiments"
+        / "standalone"
+        / "instances"
+        / "default"
+        / "journals"
+        / "instance-run-1.md"
+    ).exists()
+
+    run_metadata = json.loads(Path(result.run_metadata_path).read_text())
+    assert run_metadata["experiment_name"] == "comparison"
+    assert run_metadata["experiment_id"] == "trial-1"
+
+    leaderboard = pd.read_csv(tmp_path / "results" / "leaderboard.csv")
+    assert leaderboard.loc[0, "experiment_name"] == "comparison"
+    assert leaderboard.loc[0, "experiment_id"] == "trial-1"
+
+    input_manifest = json.loads(
+        (
+            tmp_path
+            / "results"
+            / "loop_runs"
+            / "instance-loop"
+            / "agent_input_bundle"
+            / "iteration_1"
+            / "input_manifest.json"
+        ).read_text()
+    )
+    assert input_manifest["experiment_name"] == "comparison"
+    assert input_manifest["experiment_id"] == "trial-1"
+    rationale_path = Path(input_manifest["pre_design_rationale_path"])
+    assert rationale_path.exists()
+    assert rationale_path.name == "pre_design_rationale.md"
+    assert input_manifest["writable_artifacts"][0]["artifact"] == (
+        "pre_design_rationale"
+    )
+    rationale_text = rationale_path.read_text()
+    assert "Representation-derived cues used: Manual entry required" in rationale_text
+
+    journal_text = journal_path.read_text()
+    assert f"Agent input manifest: {result.agent_input_manifest_path}" in journal_text
+    assert f"Pre-design rationale: {rationale_path}" in journal_text
+    assert "Causal trace status: Manual entry required" in journal_text
+
+
+def test_loop_run_verify_rejects_candidate_edit_without_frontier_movement(tmp_path):
+    results_dir = tmp_path / "results"
+    loop_dir = results_dir / "loop_runs" / "quality-loop"
+    candidate_path = loop_dir / "workspace" / "candidate_model.py"
+    candidate_path.parent.mkdir(parents=True)
+    candidate_path.write_text("# candidate\n")
+    (loop_dir / "agent_input_bundle" / "iteration_1").mkdir(parents=True)
+    (loop_dir / "agent_input_bundle" / "iteration_2").mkdir(parents=True)
+
+    manifest = {
+        "agent_model": "test-agent",
+        "baseline_candidate_sha256": "baseline-sha",
+        "baseline_commit": "baseline",
+        "budget": 2,
+        "candidate_workspace_path": str(candidate_path),
+        "condition": "representation",
+        "dataset_sha256": "dataset",
+        "loop_run_id": "quality-loop",
+        "primary_metric": "cv_rmse_mean",
+        "primary_metric_direction": "minimize",
+        "project_id": "synthetic_regression",
+        "spec_sha256": "spec",
+    }
+    (loop_dir / "loop_manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+    )
+    for iteration in (1, 2):
+        manifest_path = (
+            loop_dir
+            / "agent_input_bundle"
+            / f"iteration_{iteration}"
+            / "input_manifest.json"
+        )
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "condition": "representation",
+                    "files": [],
+                    "loop_run_id": "quality-loop",
+                }
+            )
+            + "\n"
+        )
+    pd.DataFrame(
+        [
+            {
+                "iteration_index": 1,
+                "evaluation_run_id": "quality-1",
+                "status": "success",
+                "primary_metric": "cv_rmse_mean",
+                "primary_metric_direction": "minimize",
+                "primary_metric_value": 1.0,
+                "candidate_sha256": "candidate-1",
+                "agent_input_manifest_path": "manifest-1",
+                "retained": False,
+            },
+            {
+                "iteration_index": 2,
+                "evaluation_run_id": "quality-2",
+                "status": "success",
+                "primary_metric": "cv_rmse_mean",
+                "primary_metric_direction": "minimize",
+                "primary_metric_value": 1.0,
+                "candidate_sha256": "candidate-2",
+                "agent_input_manifest_path": "manifest-2",
+                "retained": False,
+            },
+        ]
+    ).to_csv(loop_dir / "iterations.csv", index=False)
+    pd.DataFrame(
+        [
+            {
+                "run_id": "quality-1",
+                "status": "success",
+                "interpretability_score": float("nan"),
+            },
+            {
+                "run_id": "quality-2",
+                "status": "success",
+                "interpretability_score": float("nan"),
+            },
+        ]
+    ).to_csv(results_dir / "leaderboard.csv", index=False)
+
+    findings = verify_loop_run(results_dir, "quality-loop")
+
+    assert any(
+        finding.startswith("FAIL iteration_progress")
+        and "left cv_rmse_mean unchanged" in finding
+        for finding in findings
+    )
 
 
 def test_representation_loop_run_includes_representation_artifacts(tmp_path):
@@ -936,7 +1240,15 @@ def test_apply_interpretability_judgment_updates_leaderboard_and_report(tmp_path
     assert "Audit status:" in report_text
     assert "prediction: 1.0000" in report_text
 
-    journal_text = (tmp_path / "experiments" / "journal" / "judged-run.md").read_text()
+    journal_text = (
+        tmp_path
+        / "experiments"
+        / "standalone"
+        / "instances"
+        / "default"
+        / "journals"
+        / "judged-run.md"
+    ).read_text()
     assert "Interpretability status: agent_judged" in journal_text
     assert "Interpretability score: 0.7000" in journal_text
     assert "Applied Interpretability Judgment" in journal_text
@@ -1008,6 +1320,38 @@ def test_verify_experiment_run_fails_before_agent_judgment(tmp_path):
     )
     assert not judgment.ok
     assert "pending agent judgment" in judgment.detail
+
+
+def test_verify_experiment_run_ignores_blind_handoff_for_condition_fairness(tmp_path):
+    project = synthetic_regression_project(
+        data_dir=_copy_competition_data(tmp_path),
+        results_dir=tmp_path / "results",
+    )
+    init_loop_run(
+        project,
+        condition="blind",
+        budget=1,
+        agent_model="codex",
+        loop_run_id="blind-audit-loop",
+    )
+    prepare_iteration(tmp_path / "results", "blind-audit-loop", iteration_index=1)
+    record_iteration(
+        project,
+        "blind-audit-loop",
+        iteration_index=1,
+        run_id="blind-audit-run",
+    )
+
+    findings = verify_experiment_run(
+        results_dir=tmp_path / "results",
+        run_id="blind-audit-run",
+        project=project,
+    )
+
+    condition_fairness = next(
+        finding for finding in findings if finding.check == "condition_fairness"
+    )
+    assert condition_fairness.ok
 
 
 def test_verify_experiment_run_passes_for_agent_judged_run(tmp_path):

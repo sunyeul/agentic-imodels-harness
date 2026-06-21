@@ -63,6 +63,8 @@ class EvaluationResult:
     metrics: dict[str, float]
     result_metrics: dict[str, float]
     artifact_paths: dict[str, str]
+    experiment_name: str = ""
+    experiment_id: str = ""
     loop_run_id: str = ""
     condition: str = ""
     iteration_index: int | None = None
@@ -402,6 +404,8 @@ def run_experiment(
     import_path: list[Path] | None = None,
     loop_run_id: str | None = None,
     condition: str | None = None,
+    experiment_name: str | None = None,
+    experiment_id: str | None = None,
     iteration_index: int | None = None,
     budget: int | None = None,
     agent_model: str | None = None,
@@ -488,9 +492,11 @@ def run_experiment(
             submissions_dir, run_id, evaluation_data, test_pred
         )
         artifact_paths["submission_path"] = str(submission_path)
-        loop_metadata = {
+        loop_metadata: dict[str, object] = {
             "loop_run_id": loop_run_id or "",
             "condition": condition or "",
+            "experiment_name": experiment_name or "",
+            "experiment_id": experiment_id or "",
             "iteration_index": iteration_index,
             "budget": budget,
             "agent_model": agent_model or "",
@@ -565,15 +571,17 @@ def run_experiment(
             fold_metrics_path=str(fold_metrics_path),
             run_metadata_path=str(run_metadata_path),
             candidate_snapshot_path=str(candidate_snapshot_path),
-            loop_run_id=loop_metadata["loop_run_id"],
-            condition=loop_metadata["condition"],
+            experiment_name=str(loop_metadata["experiment_name"]),
+            experiment_id=str(loop_metadata["experiment_id"]),
+            loop_run_id=str(loop_metadata["loop_run_id"]),
+            condition=str(loop_metadata["condition"]),
             iteration_index=iteration_index,
             budget=budget,
-            agent_model=loop_metadata["agent_model"],
-            baseline_commit=loop_metadata["baseline_commit"],
-            baseline_candidate_sha256=loop_metadata["baseline_candidate_sha256"],
+            agent_model=str(loop_metadata["agent_model"]),
+            baseline_commit=str(loop_metadata["baseline_commit"]),
+            baseline_candidate_sha256=str(loop_metadata["baseline_candidate_sha256"]),
             candidate_path=candidate_path_value,
-            agent_input_manifest_path=loop_metadata["agent_input_manifest_path"],
+            agent_input_manifest_path=str(loop_metadata["agent_input_manifest_path"]),
             metrics=cv_metrics,
             result_metrics=result_metrics,
             artifact_paths=artifact_paths,
@@ -611,6 +619,9 @@ def run_experiment(
             interpretability_status="pending_agent_judgment",
             interpretability_score=interp_score,
             baseline_run_id=baseline_run_id,
+            agent_input_manifest_path=loop_metadata["agent_input_manifest_path"],
+            experiment_name=str(loop_metadata["experiment_name"]),
+            experiment_id=str(loop_metadata["experiment_id"]),
         )
         return result
     except CandidateContractError as exc:
@@ -625,6 +636,8 @@ def run_experiment(
                 "model_name": candidate_module,
                 "loop_run_id": loop_run_id or "",
                 "condition": condition or "",
+                "experiment_name": experiment_name or "",
+                "experiment_id": experiment_id or "",
                 "iteration_index": iteration_index,
                 "budget": budget,
                 "agent_model": agent_model or "",
@@ -654,6 +667,8 @@ def run_experiment(
                 "model_name": candidate_module,
                 "loop_run_id": loop_run_id or "",
                 "condition": condition or "",
+                "experiment_name": experiment_name or "",
+                "experiment_id": experiment_id or "",
                 "iteration_index": iteration_index,
                 "budget": budget,
                 "agent_model": agent_model or "",

@@ -26,10 +26,19 @@ projects/*/data/*
 !projects/*/data/sample_submission.csv
 !projects/*/data/metadata.json
 
-# Generated project-scoped experiment outputs
-projects/*/results/leaderboard.csv
-projects/*/results/loop_runs/*
-projects/*/results/runs/*
+# Generated project-scoped experiment outputs.
+#
+# Keep reviewable experiment records tracked so PRs can be reviewed by
+# experiment unit:
+# - blind or representation LoopRuns:
+#   results/loop_runs/<loop_run_id>/{loop_manifest.json,iterations.csv,...}
+# - run evidence referenced by those LoopRuns:
+#   results/runs/<run_id>/{report.md,run_metadata.json,fold_metrics.json,...}
+# - cross-condition summaries:
+#   results/leaderboard.csv and any saved comparison artifacts.
+#
+# Submission files are generated delivery artifacts and can be recreated from a
+# retained run, so keep them out of review diffs by default.
 projects/*/results/submissions/*
 !projects/*/results/
 !projects/*/results/loop_runs/
