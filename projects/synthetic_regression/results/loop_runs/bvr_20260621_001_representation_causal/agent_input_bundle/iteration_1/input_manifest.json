@@ -1,0 +1,30 @@
+{
+  "allowed_artifacts": [
+    "leaderboard",
+    "report",
+    "fold_metrics",
+    "run_metadata",
+    "error_traceback",
+    "model_string",
+    "interpretability_packet"
+  ],
+  "candidate_workspace_path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_001_representation_causal/workspace/candidate_model.py",
+  "condition": "representation",
+  "editable_files": [
+    {
+      "artifact": "candidate_workspace",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_001_representation_causal/workspace/candidate_model.py",
+      "sha256": "0ec48409ff694e26e37ea211aab5f71875cc372b330c271dd5d9cca6254f70f0"
+    }
+  ],
+  "files": [
+    {
+      "artifact": "leaderboard",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_001_representation_causal/agent_input_bundle/iteration_1/leaderboard.csv",
+      "sha256": "153a6c14899e66417bd6f493a881ec73dbbdc1709d81afa3fa3917e259f17393"
+    }
+  ],
+  "forbidden_artifacts": [],
+  "iteration_index": 1,
+  "loop_run_id": "bvr_20260621_001_representation_causal"
+}

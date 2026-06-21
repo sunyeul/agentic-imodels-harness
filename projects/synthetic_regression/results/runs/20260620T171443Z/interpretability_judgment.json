@@ -1,0 +1,27 @@
+{
+  "dimension_scores": {
+    "counterfactual": {
+      "rationale": "Dominant term signs support some increase/decrease counterfactual reasoning, but z-scoring, nonlinear interactions, and omitted ridge-shrunk terms prevent complete input-change answers.",
+      "score": 0.7
+    },
+    "feature_effects": {
+      "rationale": "The model string lists top learned basis terms with signed coefficients and explains positive versus negative effects, giving clear relative effects for the dominant terms.",
+      "score": 0.9
+    },
+    "prediction": {
+      "rationale": "It gives the prediction procedure, intercept, selected alpha, polynomial degree, and dominant coefficients, but not all coefficients or standardization parameters needed for exact calculation.",
+      "score": 0.75
+    },
+    "sensitivity": {
+      "rationale": "A feature or basis-term change can be tied to output direction and rough magnitude for listed terms, while local effects remain incomplete for interactions and omitted terms.",
+      "score": 0.75
+    },
+    "structure": {
+      "rationale": "The model family, z-scoring, degree-3 polynomial expansion, ridge regularization, CV alpha selection, term counts, and interaction structure are explicit.",
+      "score": 0.95
+    }
+  },
+  "interpretability_score": 0.81,
+  "rubric_version": "agentic-imodels-agent-facing-v1",
+  "run_id": "20260620T171443Z"
+}

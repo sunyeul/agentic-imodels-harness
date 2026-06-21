@@ -1,0 +1,28 @@
+{
+  "dimension_scores": {
+    "counterfactual": {
+      "rationale": "The text states positive expanded terms raise predictions and negative terms lower them, and explains local additive counterfactual sensitivity, but exact original-feature counterfactuals require accounting for squared and interaction terms at a specific input.",
+      "score": 0.85
+    },
+    "feature_effects": {
+      "rationale": "The model string gives signed coefficients for all expanded terms and lists the top absolute coefficient terms, making major directions and relative effects clear.",
+      "score": 0.95
+    },
+    "prediction": {
+      "rationale": "A complete prediction equation is provided with intercept, original features, squared terms, pairwise interactions, and coefficients.",
+      "score": 0.98
+    },
+    "sensitivity": {
+      "rationale": "Coefficient signs and magnitudes support local additive sensitivity reasoning in the expanded basis, while original-feature sensitivity is more complex because each feature participates in linear, squared, and interaction terms.",
+      "score": 0.9
+    },
+    "structure": {
+      "rationale": "The model family, RidgeCV alpha, quadratic feature expansion, squared terms, pairwise interactions, and expanded-feature coefficient units are explicit.",
+      "score": 0.95
+    }
+  },
+  "interpretability_score": 0.926,
+  "project_id": "synthetic_regression",
+  "rubric_version": "agentic-imodels-agent-facing-v1",
+  "run_id": "20260620T154656Z"
+}

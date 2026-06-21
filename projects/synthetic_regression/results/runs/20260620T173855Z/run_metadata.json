@@ -1,0 +1,38 @@
+{
+  "agent_input_manifest_path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_002_blind_causal_control/agent_input_bundle/iteration_4/input_manifest.json",
+  "agent_model": "codex",
+  "artifacts": {
+    "candidate_snapshot_path": "projects/synthetic_regression/results/runs/20260620T173855Z/candidate_snapshot.py",
+    "diagnostics_path": "projects/synthetic_regression/results/runs/20260620T173855Z/residual_diagnostics.json",
+    "fold_metrics_path": "projects/synthetic_regression/results/runs/20260620T173855Z/fold_metrics.json",
+    "report_path": "projects/synthetic_regression/results/runs/20260620T173855Z/report.md",
+    "submission_path": "projects/synthetic_regression/results/submissions/20260620T173855Z.csv"
+  },
+  "baseline_candidate_sha256": "0ec48409ff694e26e37ea211aab5f71875cc372b330c271dd5d9cca6254f70f0",
+  "baseline_commit": "f78d837c191512d80dcf19e4ab0c6508186cca3f",
+  "budget": 5,
+  "candidate_module": "_toy_imodels_loop_candidate_78e0298ecd80ef05",
+  "candidate_path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_002_blind_causal_control/workspace/candidate_model.py",
+  "candidate_source_sha256": "40be4e2fa5118192f5c1b3d22ab9a61a785c90daa8a041b5e4e56e6d646a4c51",
+  "condition": "blind",
+  "git_commit": "f78d837c191512d80dcf19e4ab0c6508186cca3f",
+  "git_dirty": true,
+  "git_parent_commit": "aeeaccdb54ff6c6e4370240c34699dafb6a091ce",
+  "iteration_index": 4,
+  "loop_run_id": "bvr_20260621_002_blind_causal_control",
+  "primary_metric": "cv_rmse_mean",
+  "primary_metric_direction": "minimize",
+  "project_id": "synthetic_regression",
+  "run_id": "20260620T173855Z",
+  "spec": {
+    "cv_description": "5-fold shuffled KFold over all labeled rows.",
+    "cv_n_splits": 5,
+    "cv_random_state": 42,
+    "cv_strategy_name": "kfold_5_shuffle_seed42",
+    "primary_metric": "cv_rmse_mean",
+    "primary_metric_direction": "minimize",
+    "spec_name": "default"
+  },
+  "spec_name": "default",
+  "timestamp": "2026-06-20T17:41:42.903629+00:00"
+}

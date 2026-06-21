@@ -1,0 +1,27 @@
+{
+  "dimension_scores": {
+    "counterfactual": {
+      "rationale": "The text says dominant linear, squared, and interaction terms can support counterfactual sensitivity, but exact increase/decrease answers are limited by omitted smaller terms and missing standardization details.",
+      "score": 0.75
+    },
+    "feature_effects": {
+      "rationale": "The top learned basis terms include coefficients and signs, making relative importance and effect direction clear for the dominant features, though not for every fitted term.",
+      "score": 0.9
+    },
+    "prediction": {
+      "rationale": "The model family, preprocessing, polynomial expansion, intercept, alpha, and leading coefficients provide a usable partial calculation procedure, but the full equation is not recoverable from the text.",
+      "score": 0.8
+    },
+    "sensitivity": {
+      "rationale": "Feature changes can be tied to output direction and approximate standardized-basis magnitude for the listed dominant terms, while interactions, squared terms, and omitted coefficients limit local sensitivity detail.",
+      "score": 0.8
+    },
+    "structure": {
+      "rationale": "The representation explicitly names the Polynomial RidgeCV family, z-scoring, degree-2 expansion, linear, squared and pairwise interaction structure, ridge regularization, alpha selection, and excluded cubic terms.",
+      "score": 0.95
+    }
+  },
+  "interpretability_score": 0.84,
+  "rubric_version": "agentic-imodels-agent-facing-v1",
+  "run_id": "20260620T172633Z"
+}

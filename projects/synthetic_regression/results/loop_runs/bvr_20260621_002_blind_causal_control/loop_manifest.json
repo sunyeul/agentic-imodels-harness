@@ -1,0 +1,16 @@
+{
+  "agent_model": "codex",
+  "baseline_candidate_sha256": "0ec48409ff694e26e37ea211aab5f71875cc372b330c271dd5d9cca6254f70f0",
+  "baseline_commit": "f78d837c191512d80dcf19e4ab0c6508186cca3f",
+  "budget": 5,
+  "candidate_workspace_path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_002_blind_causal_control/workspace/candidate_model.py",
+  "condition": "blind",
+  "dataset_sha256": "626305c9f84d3167c79af8f53fae3f9af67f60f6ccea063aa04889b8ded5c67f",
+  "experiment_id": "bvr_20260621_001",
+  "experiment_name": "blind_vs_representation",
+  "loop_run_id": "bvr_20260621_002_blind_causal_control",
+  "primary_metric": "cv_rmse_mean",
+  "primary_metric_direction": "minimize",
+  "project_id": "synthetic_regression",
+  "spec_sha256": "509f350448cdf8bccce621b3dd1dffc2b11ad597cc24e4c466bad572ce933bbc"
+}

@@ -1,0 +1,54 @@
+{
+  "audit_status": "pass",
+  "dimension_audits": {
+    "counterfactual": {
+      "evidence_terms": [
+        "increase",
+        "decrease",
+        "counterfactual",
+        "coefficient"
+      ],
+      "score": 0.72,
+      "warnings": []
+    },
+    "feature_effects": {
+      "evidence_terms": [
+        "coefficient",
+        "coefficients",
+        "top",
+        "feature"
+      ],
+      "score": 0.9,
+      "warnings": []
+    },
+    "prediction": {
+      "evidence_terms": [
+        "predict",
+        "prediction"
+      ],
+      "score": 0.78,
+      "warnings": []
+    },
+    "sensitivity": {
+      "evidence_terms": [
+        "coefficient",
+        "sensitivity"
+      ],
+      "score": 0.8,
+      "warnings": []
+    },
+    "structure": {
+      "evidence_terms": [
+        "linear",
+        "ridge",
+        "interaction"
+      ],
+      "score": 0.95,
+      "warnings": []
+    }
+  },
+  "judged_score": 0.83,
+  "rubric_version": "agentic-imodels-agent-facing-v1",
+  "run_id": "20260620T170011Z",
+  "warnings": []
+}

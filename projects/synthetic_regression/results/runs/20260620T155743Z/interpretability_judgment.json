@@ -1,0 +1,27 @@
+{
+  "dimension_scores": {
+    "counterfactual": {
+      "rationale": "The text states positive terms raise predictions and negative terms lower them, so increase/decrease counterfactuals are answerable locally, but original-feature changes require combining linear, squared, and interaction effects.",
+      "score": 0.85
+    },
+    "feature_effects": {
+      "rationale": "Feature-level coefficients, signs, and top absolute active terms are listed, including zeroed weak terms.",
+      "score": 0.98
+    },
+    "prediction": {
+      "rationale": "The model string gives an explicit additive prediction equation with intercept, coefficients, squared terms, and pairwise interactions.",
+      "score": 0.98
+    },
+    "sensitivity": {
+      "rationale": "Local additive sensitivity is described and coefficient signs/magnitudes support marginal reasoning, though original-feature sensitivity can depend on retained squared and interaction terms.",
+      "score": 0.9
+    },
+    "structure": {
+      "rationale": "The family, sparse ElasticNetCV fit, polynomial expansion, interactions, selected alpha/l1 ratio, active term count, and zeroed terms are explicit.",
+      "score": 0.97
+    }
+  },
+  "interpretability_score": 0.936,
+  "rubric_version": "agentic-imodels-agent-facing-v1",
+  "run_id": "20260620T155743Z"
+}
