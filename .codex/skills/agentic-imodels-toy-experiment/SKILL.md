@@ -28,13 +28,28 @@ artifacts or editing code.
 - Condition-specific LoopRun design starts only after `prepare` creates that
   iteration's `input_manifest.json`.
 - Candidate design sessions inspect only their allowed manifest-listed files and
-  edit only the recorded candidate file.
+  edit only the recorded candidate file plus the manifest-listed
+  `pre_design_rationale.md` provenance artifact.
 - Do not reuse a design session across LoopRun conditions.
 
 ## Workflow
 
 Follow `references/workflow.md` for setup/management, LoopRun condition
 isolation, standard candidate iteration, and PDCA artifact handling.
+For LoopRun design, preserve the causal trace from allowed condition-specific
+context to candidate edit in `pre_design_rationale.md` before editing the
+candidate.
+
+## PDCA Run Artifact Usage
+
+- Plan: use compatible completed runs and manifest-allowed context to choose one
+  modeling hypothesis.
+- Do: edit only the allowed candidate file for the active project or LoopRun.
+- Check: inspect allowed run artifacts such as `fold_metrics.json`,
+  `run_metadata.json`, and `candidate_snapshot.py` when the current session
+  scope permits those files.
+- Act: recommend or prepare the next single experiment only after the current
+  result is recorded and audited.
 
 ## Guardrails
 
@@ -51,6 +66,10 @@ isolation, standard candidate iteration, and PDCA artifact handling.
   provide `model_name`, `notes`, and `__str__`; the fixed harness owns log
   writing and artifact persistence.
 - Keep `__str__` informative enough for another agent to reason about the model.
+- Prefer candidate changes that alter `fit`/`predict` behavior and can move the
+  declared primary metric. A text-only representation change is an exception:
+  use it only when an interpretability judgment will be applied before the next
+  iteration, so the loop has evidence that the frontier moved.
 - During candidate iteration, keep edits inside
   `projects/<project_name>/experiments/candidate_model.py`. That file is the
   model-design search space.

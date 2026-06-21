@@ -46,8 +46,43 @@ Custom scoring:
   generator code, hidden targets, or oracle structure metadata. Use only public
   feature schemas, training data passed to `fit`, and completed run artifacts.
 
-Artifacts:
+Artifact ownership:
+
+- `projects/<project_name>/results/runs/<run_id>/` is the canonical artifact
+  directory for one evaluation run. Keep run reports, fold metrics, run
+  metadata, candidate snapshots, diagnostics, interpretability packets, and
+  error tracebacks there.
+- `projects/<project_name>/results/loop_runs/<loop_run_id>/` is the canonical
+  directory for one LoopRun controller state. Keep the loop manifest, loop
+  workspace candidate, condition-specific `agent_input_bundle/iteration_<n>/`
+  manifests, design handoff prompts, and `iterations.csv` there. LoopRun rows
+  reference evaluation evidence through `iterations.csv` column
+  `evaluation_run_id`; do not duplicate full run directories under
+  `loop_runs/`.
+- `projects/<project_name>/experiments/<experiment_name>/instances/<experiment_id>/journals/<run_id>.md`
+  is the tracked run-level experiment journal. Use it for provenance,
+  hypothesis, result summary, artifact links, design rationale links, outcome
+  review, judgment status, and next action.
+  It summarizes and links to run artifacts; it is not the canonical storage
+  location for raw run outputs. For standalone runs without an explicit
+  experiment instance, use
+  `projects/<project_name>/experiments/standalone/instances/default/journals/<run_id>.md`.
+- Expected relationship: one LoopRun has many iterations; each recorded
+  iteration has one evaluation `run_id`; each `run_id` has one
+  `results/runs/<run_id>/` directory and one
+  experiment-instance journal.
+
+Core artifacts:
 
 - `projects/<project_name>/results/leaderboard.csv`
 - `projects/<project_name>/results/submissions/<run_id>.csv`
 - `projects/<project_name>/results/runs/<run_id>/report.md`
+- `projects/<project_name>/results/runs/<run_id>/run_metadata.json`
+- `projects/<project_name>/results/runs/<run_id>/fold_metrics.json`
+- `projects/<project_name>/results/runs/<run_id>/candidate_snapshot.py`
+- `projects/<project_name>/experiments/<experiment_name>/instances/<experiment_id>/journals/<run_id>.md`
+- `projects/<project_name>/results/loop_runs/<loop_run_id>/loop_manifest.json`
+- `projects/<project_name>/results/loop_runs/<loop_run_id>/iterations.csv`
+- `projects/<project_name>/results/loop_runs/<loop_run_id>/agent_input_bundle/iteration_<n>/input_manifest.json`
+- `projects/<project_name>/results/loop_runs/<loop_run_id>/agent_input_bundle/iteration_<n>/pre_design_rationale.md`
+- `projects/<project_name>/results/loop_runs/<loop_run_id>/agent_input_bundle/iteration_<n>/design_handoff_prompt.md`
