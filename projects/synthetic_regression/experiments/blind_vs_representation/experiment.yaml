@@ -1,0 +1,21 @@
+experiment_name: blind_vs_representation
+project_id: synthetic_regression
+hypothesis: >
+  Representation artifacts improve candidate-search efficiency versus blind
+  search under an equal LoopRun budget.
+unit_of_replication: comparative_experiment_instance
+condition_roles:
+  blind: control
+  representation: treatment
+primary_metric: cv_rmse_mean
+primary_metric_direction: minimize
+default_budget:
+  iterations_per_condition: 5
+artifact_policy:
+  canonical_run_artifacts: projects/synthetic_regression/results/runs/<run_id>/
+  canonical_loop_artifacts: projects/synthetic_regression/results/loop_runs/<loop_run_id>/
+  experiment_instances: projects/synthetic_regression/experiments/blind_vs_representation/instances/<experiment_id>/
+  instance_journals: projects/synthetic_regression/experiments/blind_vs_representation/instances/<experiment_id>/journals/<run_id>.md
+notes:
+  - Experiment instances decide the hypothesis; individual conditions are not independent hypothesis tests.
+  - Interpretability conclusions require agent judgment artifacts before they are treated as frontier evidence.
