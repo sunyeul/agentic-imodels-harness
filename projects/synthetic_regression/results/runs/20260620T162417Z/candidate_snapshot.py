@@ -52,9 +52,10 @@ class CandidateModel(BaseCandidateModel):
     def predict(self, X):
         expanded = self.poly.transform(X)
         scaled = self.scaler.transform(expanded)
-        if self.selected_mask is None:
+        selected_mask = self.selected_mask
+        if selected_mask is None:
             raise RuntimeError("CandidateModel must be fitted before predict().")
-        return self.refit.predict(scaled[:, self.selected_mask])
+        return self.refit.predict(np.asarray(scaled)[:, selected_mask])
 
     @staticmethod
     def _term_degree(name: str) -> int:

@@ -6,7 +6,7 @@ import shutil
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal, TypedDict, cast
+from typing import Any, Literal, TypedDict, cast
 
 import pandas as pd
 
@@ -796,7 +796,9 @@ def _verify_iteration_progress(
             previous_row = row
             continue
 
-        previous_iteration = int(previous_row["iteration_index"])
+        previous_iteration = int(
+            cast(int | float | str, previous_row["iteration_index"])
+        )
         previous_sha = str(previous_row.get("candidate_sha256", ""))
         if candidate_sha == previous_sha:
             findings.append(
@@ -871,7 +873,7 @@ def _interpretability_improved(
 
 def _float_or_nan(value: object) -> float:
     try:
-        return float(value)
+        return float(cast(Any, value))
     except (TypeError, ValueError):
         return float("nan")
 

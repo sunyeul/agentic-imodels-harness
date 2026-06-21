@@ -619,7 +619,7 @@ def run_experiment(
             interpretability_status="pending_agent_judgment",
             interpretability_score=interp_score,
             baseline_run_id=baseline_run_id,
-            agent_input_manifest_path=loop_metadata["agent_input_manifest_path"],
+            agent_input_manifest_path=str(loop_metadata["agent_input_manifest_path"]),
             experiment_name=str(loop_metadata["experiment_name"]),
             experiment_id=str(loop_metadata["experiment_id"]),
         )
