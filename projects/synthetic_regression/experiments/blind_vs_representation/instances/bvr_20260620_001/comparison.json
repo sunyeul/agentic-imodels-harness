@@ -1,0 +1,20 @@
+{
+  "left": {
+    "best_score_at_budget": 0.9488791094313402,
+    "condition": "blind",
+    "failed_edit_rate": 0.0,
+    "gain_per_iteration": 0.018251488450421505,
+    "iterations_to_target": null,
+    "loop_run_id": "synthetic_regression_blind",
+    "regression_rate": 0.5
+  },
+  "right": {
+    "best_score_at_budget": 0.8499420743055246,
+    "condition": "representation",
+    "failed_edit_rate": 0.0,
+    "gain_per_iteration": 0.036952175682801514,
+    "iterations_to_target": null,
+    "loop_run_id": "synthetic_regression_representation",
+    "regression_rate": 0.75
+  }
+}
