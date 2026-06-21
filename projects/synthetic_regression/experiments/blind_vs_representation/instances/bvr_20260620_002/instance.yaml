@@ -1,0 +1,91 @@
+experiment_id: bvr_20260620_002
+experiment_name: blind_vs_representation
+project_id: synthetic_regression
+status: waiting_for_representation_iteration_1_design
+comparison_scope: pending_representation_budget
+hypothesis: >
+  Representation artifacts improve candidate-search efficiency versus blind
+  search under an equal LoopRun budget.
+spec:
+  name: default
+  class: DefaultEvaluationSpec
+  primary_metric: cv_rmse_mean
+  primary_metric_direction: minimize
+  cv_strategy: kfold_5_shuffle_seed42
+  cv_n_splits: 5
+  cv_random_state: 42
+baseline:
+  commit: f78d837c191512d80dcf19e4ab0c6508186cca3f
+  candidate_sha256: 0ec48409ff694e26e37ea211aab5f71875cc372b330c271dd5d9cca6254f70f0
+  dataset_sha256: 626305c9f84d3167c79af8f53fae3f9af67f60f6ccea063aa04889b8ded5c67f
+  spec_sha256: 509f350448cdf8bccce621b3dd1dffc2b11ad597cc24e4c466bad572ce933bbc
+budget:
+  iterations_per_condition: 5
+conditions:
+  blind:
+    role: control
+    loop_run_id: bvr_20260620_002_blind
+    status: budget_completed_pending_retention_and_interpretability
+    candidate_workspace_path: projects/synthetic_regression/results/loop_runs/bvr_20260620_002_blind/workspace/candidate_model.py
+    prepared_iterations:
+      - iteration: 1
+        input_manifest: projects/synthetic_regression/results/loop_runs/bvr_20260620_002_blind/agent_input_bundle/iteration_1/input_manifest.json
+      - iteration: 2
+        input_manifest: projects/synthetic_regression/results/loop_runs/bvr_20260620_002_blind/agent_input_bundle/iteration_2/input_manifest.json
+      - iteration: 3
+        input_manifest: projects/synthetic_regression/results/loop_runs/bvr_20260620_002_blind/agent_input_bundle/iteration_3/input_manifest.json
+      - iteration: 4
+        input_manifest: projects/synthetic_regression/results/loop_runs/bvr_20260620_002_blind/agent_input_bundle/iteration_4/input_manifest.json
+      - iteration: 5
+        input_manifest: projects/synthetic_regression/results/loop_runs/bvr_20260620_002_blind/agent_input_bundle/iteration_5/input_manifest.json
+    recorded_iterations:
+      - iteration: 1
+        run_id: bvr_20260620_002_blind_iter1_20260620T105423Z
+        status: success
+        cv_rmse_mean: 1.0348888066717503
+      - iteration: 2
+        run_id: bvr_20260620_002_blind_iter2_20260620T111109Z
+        status: success
+        cv_rmse_mean: 1.6088483360060335
+      - iteration: 3
+        run_id: bvr_20260620_002_blind_iter3_20260620T111312Z
+        status: success
+        cv_rmse_mean: 1.6657477535129943
+      - iteration: 4
+        run_id: bvr_20260620_002_blind_iter4_20260620T111448Z
+        status: success
+        cv_rmse_mean: 0.960024015137986
+        best_blind: true
+      - iteration: 5
+        run_id: bvr_20260620_002_blind_iter5_20260620T111638Z
+        status: success
+        cv_rmse_mean: 1.0348888066717505
+    best_iteration: 4
+    interpretability_status: pending_agent_judgment
+  representation:
+    role: treatment
+    loop_run_id: bvr_20260620_002_representation
+    status: iteration_1_prepared
+    candidate_workspace_path: projects/synthetic_regression/results/loop_runs/bvr_20260620_002_representation/workspace/candidate_model.py
+    prepared_iterations:
+      - iteration: 1
+        input_manifest: projects/synthetic_regression/results/loop_runs/bvr_20260620_002_representation/agent_input_bundle/iteration_1/input_manifest.json
+    recorded_iterations: []
+setup:
+  session_scope: setup_management
+  candidate_design_performed: false
+  condition_specific_artifacts_interpreted: false
+  blind_iteration_1_prepare_completed: true
+  representation_iteration_1_prepare_completed: true
+  next_session: representation_iteration_1_design
+reservations:
+  - Blind interpretability judgments remain pending.
+  - Blind runs recorded a dirty tree, so protected drift checks are limited.
+  - During blind iteration 2 post-run row resolution, a prior session over-read the global leaderboard; treat this as a process reservation, not evidence of representation contamination.
+artifacts:
+  plan: ../../plan.md
+  results_dir: projects/synthetic_regression/results
+  blind_loop_manifest: projects/synthetic_regression/results/loop_runs/bvr_20260620_002_blind/loop_manifest.json
+  representation_loop_manifest: projects/synthetic_regression/results/loop_runs/bvr_20260620_002_representation/loop_manifest.json
+  blind_iteration_1_input_manifest: projects/synthetic_regression/results/loop_runs/bvr_20260620_002_blind/agent_input_bundle/iteration_1/input_manifest.json
+  representation_iteration_1_input_manifest: projects/synthetic_regression/results/loop_runs/bvr_20260620_002_representation/agent_input_bundle/iteration_1/input_manifest.json
