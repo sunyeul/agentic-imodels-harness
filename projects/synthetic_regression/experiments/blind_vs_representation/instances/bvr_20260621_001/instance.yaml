@@ -1,0 +1,56 @@
+experiment_id: bvr_20260621_001
+experiment_name: blind_vs_representation
+project_id: synthetic_regression
+status: completed
+comparison_scope: matched_blind_vs_representation_predictive
+hypothesis: >
+  Representation artifacts improve candidate-search efficiency versus blind
+  search under an equal LoopRun budget.
+spec:
+  name: default
+  class: DefaultEvaluationSpec
+  primary_metric: cv_rmse_mean
+  primary_metric_direction: minimize
+  cv_strategy: kfold_5_shuffle_seed42
+  cv_n_splits: 5
+  cv_random_state: 42
+baseline:
+  commit: f78d837c191512d80dcf19e4ab0c6508186cca3f
+  candidate_sha256: 0ec48409ff694e26e37ea211aab5f71875cc372b330c271dd5d9cca6254f70f0
+  dataset_sha256: 626305c9f84d3167c79af8f53fae3f9af67f60f6ccea063aa04889b8ded5c67f
+  spec_sha256: 509f350448cdf8bccce621b3dd1dffc2b11ad597cc24e4c466bad572ce933bbc
+budget:
+  iterations_per_condition: 5
+conditions:
+  representation:
+    role: treatment
+    loop_run_id: bvr_20260621_001_representation_causal
+    best_run_id: 20260620T163252Z
+    best_score_at_budget: 0.8486066058537377
+    gain_per_iteration: 0.03721926937316618
+    regression_rate: 0.25
+    failed_edit_rate: 0.0
+  blind:
+    role: control
+    loop_run_id: bvr_20260621_002_blind_causal_control
+    best_run_id: 20260620T175142Z
+    best_score_at_budget: 0.951539119940656
+    gain_per_iteration: 0.01737105434513562
+    regression_rate: 0.25
+    failed_edit_rate: 0.0
+comparison:
+  command: rtk uv run python -m toy_imodels.compare_loop_runs --left bvr_20260621_001_representation_causal --right bvr_20260621_002_blind_causal_control --results-dir projects/synthetic_regression/results
+  exit_status: 0
+  winner: representation
+  cv_rmse_mean_margin: 0.10293251408691828
+  iterations_to_target: null
+cleanup:
+  removed_orphan_leaderboard_run_id: 20260620T164931Z
+  official_comparison_source: LoopRun iterations.csv via toy_imodels.compare_loop_runs
+artifacts:
+  comparison: comparison.json
+  audit: audit.md
+  conclusion: conclusion.md
+  results_dir: projects/synthetic_regression/results
+  representation_loop_manifest: projects/synthetic_regression/results/loop_runs/bvr_20260621_001_representation_causal/loop_manifest.json
+  blind_loop_manifest: projects/synthetic_regression/results/loop_runs/bvr_20260621_002_blind_causal_control/loop_manifest.json

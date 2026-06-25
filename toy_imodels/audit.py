@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -12,6 +13,7 @@ import pandas as pd
 from toy_imodels.provenance import (
     candidate_module_path,
     comparable_baseline_run_id,
+    journal_path_for_run,
     protected_paths_changed_since_commit,
     repo_root,
     sha256_file,
@@ -240,7 +242,8 @@ def _check_condition_fairness(metadata: dict[str, Any]) -> AuditFinding:
         bundle_text = "\n".join(
             path.read_text(errors="ignore")
             for path in manifest_path.parent.rglob("*")
-            if path.is_file() and path.name != "input_manifest.json"
+            if path.is_file()
+            and path.name not in {"input_manifest.json", "design_handoff_prompt.md"}
         )
         forbidden = [
             term
@@ -325,13 +328,19 @@ def _check_comparable_baseline(
 
 
 def _check_journal(results_dir: Path, run_id: str) -> AuditFinding:
-    journal_path = (
-        results_dir.resolve().parent / "experiments" / "journal" / f"{run_id}.md"
-    )
+    journal_path = journal_path_for_run(results_dir, run_id)
     if not journal_path.exists():
         return AuditFinding("journal", False, f"missing {journal_path}")
     text = journal_path.read_text()
-    required = ("Commit:", "Candidate SHA256:", "Comparable baseline:", "Next Action")
+    required = (
+        "Commit:",
+        "Candidate SHA256:",
+        "Comparable baseline:",
+        "Pre-design rationale:",
+        "Design Rationale",
+        "Outcome Review",
+        "Next Action",
+    )
     missing = [item for item in required if item not in text]
     if missing:
         return AuditFinding(
@@ -346,20 +355,26 @@ def _check_interpretability_judgment(
     results_dir: Path, target: pd.Series
 ) -> AuditFinding:
     run_id = str(target["run_id"])
-    score = target.get("interpretability_score", "")
-    if pd.isna(score):
+    score = target.get("interpretability_score")
+    if score is None:
         return AuditFinding(
             "interpretability_judgment",
             False,
             f"run_id {run_id} is pending agent judgment",
         )
     try:
-        float(score)
+        score_value = float(score)
     except (TypeError, ValueError):
         return AuditFinding(
             "interpretability_judgment",
             False,
             f"run_id {run_id} has non-numeric interpretability_score {score!r}",
+        )
+    if math.isnan(score_value):
+        return AuditFinding(
+            "interpretability_judgment",
+            False,
+            f"run_id {run_id} is pending agent judgment",
         )
 
     judgment_path_value = target.get("interpretability_judgment_path", "")
@@ -396,9 +411,7 @@ def _check_interpretability_judgment(
 
     report_path_value = target.get("report_path", "")
     report_text = Path(str(report_path_value)).read_text() if report_path_value else ""
-    journal_path = (
-        results_dir.resolve().parent / "experiments" / "journal" / f"{run_id}.md"
-    )
+    journal_path = journal_path_for_run(results_dir, run_id)
     journal_text = journal_path.read_text() if journal_path.exists() else ""
     if "Agent-judged interpretability score:" not in report_text:
         return AuditFinding(

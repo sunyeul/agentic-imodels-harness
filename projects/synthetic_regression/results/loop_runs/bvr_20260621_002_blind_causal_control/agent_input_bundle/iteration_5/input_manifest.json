@@ -1,0 +1,48 @@
+{
+  "allowed_artifacts": [
+    "leaderboard",
+    "sanitized_report",
+    "fold_metrics",
+    "run_metadata",
+    "error_traceback",
+    "score_movement"
+  ],
+  "candidate_workspace_path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_002_blind_causal_control/workspace/candidate_model.py",
+  "condition": "blind",
+  "editable_files": [
+    {
+      "artifact": "candidate_workspace",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_002_blind_causal_control/workspace/candidate_model.py",
+      "sha256": "aa179c034baea9654da3cd6b1c4decc01389d62d648b68a6969a5a20ce007128"
+    }
+  ],
+  "files": [
+    {
+      "artifact": "leaderboard",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_002_blind_causal_control/agent_input_bundle/iteration_5/leaderboard.csv",
+      "sha256": "ad8b749230aa6db398bfcd387edb59a6a4e9459092166c712aac3dc33ab2b4c8"
+    },
+    {
+      "artifact": "sanitized_report",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_002_blind_causal_control/agent_input_bundle/iteration_5/report.md",
+      "sha256": "5b0552ad38db34e1fa54328915f3c2fc011315b57daac6b79d771918d6751923"
+    },
+    {
+      "artifact": "fold_metrics",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_002_blind_causal_control/agent_input_bundle/iteration_5/fold_metrics.json",
+      "sha256": "44b11967a588d01f0b8a9122f6b307eedb63e34ea9fddb493e6a78d367d8c42f"
+    },
+    {
+      "artifact": "run_metadata",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_002_blind_causal_control/agent_input_bundle/iteration_5/run_metadata.json",
+      "sha256": "eff14a1e2bfbe47398d99cf091af13f11222d2ec3e3cb921285951ca5038ccbc"
+    }
+  ],
+  "forbidden_artifacts": [
+    "model_string",
+    "interpretability_packet",
+    "candidate_snapshot"
+  ],
+  "iteration_index": 5,
+  "loop_run_id": "bvr_20260621_002_blind_causal_control"
+}

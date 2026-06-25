@@ -1,0 +1,28 @@
+{
+  "dimension_scores": {
+    "counterfactual": {
+      "rationale": "Positive and negative retained terms support local increase/decrease reasoning, but original-feature counterfactuals are complicated by powers, interactions, and omitted active terms.",
+      "score": 0.75
+    },
+    "feature_effects": {
+      "rationale": "The model string lists signed coefficients and top absolute active terms, making dominant expanded-feature effects and relative importance clear despite truncation.",
+      "score": 0.9
+    },
+    "prediction": {
+      "rationale": "It provides an intercept and explicit retained-term equation for dominant nonzero expanded terms, but the equation is truncated while predict() still uses omitted active terms.",
+      "score": 0.85
+    },
+    "sensitivity": {
+      "rationale": "The additive expanded-basis coefficients tie term changes to output direction and magnitude, though marginal effects for original features require accounting for nonlinear and interaction terms.",
+      "score": 0.8
+    },
+    "structure": {
+      "rationale": "The family, cubic polynomial basis, regularization settings, sparsity counts, degree breakdown, and retained interactions are explicitly described.",
+      "score": 0.95
+    }
+  },
+  "interpretability_score": 0.85,
+  "project_id": "synthetic_regression",
+  "rubric_version": "agentic-imodels-agent-facing-v1",
+  "run_id": "20260620T163252Z"
+}

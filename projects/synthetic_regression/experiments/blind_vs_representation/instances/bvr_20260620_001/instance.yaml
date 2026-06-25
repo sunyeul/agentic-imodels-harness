@@ -1,0 +1,53 @@
+experiment_id: bvr_20260620_001
+experiment_name: blind_vs_representation
+project_id: synthetic_regression
+status: completed
+comparison_scope: predictive_only
+hypothesis: >
+  Representation artifacts improve candidate-search efficiency versus blind
+  search under an equal LoopRun budget.
+spec:
+  name: default
+  class: DefaultEvaluationSpec
+  primary_metric: cv_rmse_mean
+  primary_metric_direction: minimize
+  cv_strategy: kfold_5_shuffle_seed42
+  cv_n_splits: 5
+  cv_random_state: 42
+baseline:
+  commit: 1b33c64a5eb71ce1b9704b9b00524e018e7cc6ab
+  candidate_sha256: 0ec48409ff694e26e37ea211aab5f71875cc372b330c271dd5d9cca6254f70f0
+  dataset_sha256: 626305c9f84d3167c79af8f53fae3f9af67f60f6ccea063aa04889b8ded5c67f
+  spec_sha256: 509f350448cdf8bccce621b3dd1dffc2b11ad597cc24e4c466bad572ce933bbc
+budget:
+  iterations_per_condition: 5
+conditions:
+  blind:
+    role: control
+    loop_run_id: synthetic_regression_blind
+    best_run_id: synthetic_regression_blind_iter5_20260620T090107Z
+    best_score_at_budget: 0.9488791094313402
+  representation:
+    role: treatment
+    loop_run_id: synthetic_regression_representation
+    best_run_id: synthetic_regression_representation_iter5_20260620T092729Z
+    best_score_at_budget: 0.8499420743055246
+comparison:
+  winner: representation
+  blind_gain_per_iteration: 0.018251488450421505
+  representation_gain_per_iteration: 0.036952175682801514
+  blind_failed_edit_rate: 0.0
+  representation_failed_edit_rate: 0.0
+  blind_regression_rate: 0.5
+  representation_regression_rate: 0.75
+  iterations_to_target: null
+interpretability:
+  status: pending_agent_judgment
+  conclusion: predictive_only_until_judged
+artifacts:
+  plan: ../../plan.md
+  comparison: comparison.json
+  journals: journals/
+  results_dir: projects/synthetic_regression/results
+  blind_loop_manifest: projects/synthetic_regression/results/loop_runs/synthetic_regression_blind/loop_manifest.json
+  representation_loop_manifest: projects/synthetic_regression/results/loop_runs/synthetic_regression_representation/loop_manifest.json

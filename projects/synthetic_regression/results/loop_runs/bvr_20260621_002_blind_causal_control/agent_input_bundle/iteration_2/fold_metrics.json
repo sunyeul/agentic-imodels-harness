@@ -1,0 +1,56 @@
+{
+  "folds": [
+    {
+      "fold_index": 0,
+      "metrics": {
+        "mae": 0.828040648938644,
+        "r2": 0.9197789455333152,
+        "rmse": 1.0568688122594057
+      },
+      "train_rows": 640,
+      "valid_rows": 160
+    },
+    {
+      "fold_index": 1,
+      "metrics": {
+        "mae": 0.8986457062721488,
+        "r2": 0.8895527026270491,
+        "rmse": 1.1501365762083924
+      },
+      "train_rows": 640,
+      "valid_rows": 160
+    },
+    {
+      "fold_index": 2,
+      "metrics": {
+        "mae": 0.7646273036045879,
+        "r2": 0.9319077314638363,
+        "rmse": 0.9625416762601678
+      },
+      "train_rows": 640,
+      "valid_rows": 160
+    },
+    {
+      "fold_index": 3,
+      "metrics": {
+        "mae": 0.8194346010751886,
+        "r2": 0.9013864015261522,
+        "rmse": 0.9967528576515332
+      },
+      "train_rows": 640,
+      "valid_rows": 160
+    },
+    {
+      "fold_index": 4,
+      "metrics": {
+        "mae": 0.8058687450551563,
+        "r2": 0.908821964717687,
+        "rmse": 1.025672035952171
+      },
+      "train_rows": 640,
+      "valid_rows": 160
+    }
+  ],
+  "project_id": "synthetic_regression",
+  "run_id": "20260620T170011Z"
+}

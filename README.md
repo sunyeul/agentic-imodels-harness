@@ -47,7 +47,8 @@ After quickstart, expect:
 - a submission CSV under `projects/synthetic_regression/results/submissions/`
 - a run report under `projects/synthetic_regression/results/runs/`
 - an oracle-free residual diagnostics artifact for each run
-- a tracked journal under `projects/synthetic_regression/experiments/journal/`
+- a tracked journal under an experiment instance, such as
+  `projects/synthetic_regression/experiments/<experiment_name>/instances/<experiment_id>/journals/`
 - the smoke test suite to pass
 
 ## Codex harness
@@ -82,5 +83,18 @@ applied. Create a judgment JSON matching the packet schema, apply it with
 `interpretability_judgment.json`, `interpretability_judgment_audit.json`,
 leaderboard update, report update, and journal update together as the audit
 record. `task verify-experiment -- <run_id>` fails until the judgment has been
-applied. Only journal Markdown files are tracked by git; generated result
-artifacts remain ignored.
+applied.
+
+Review experiment outputs by unit:
+
+- `blind`: review the relevant `results/loop_runs/<blind-loop-id>/` directory,
+  its `iterations.csv`, and the linked `results/runs/<run-id>/` evidence.
+- `representation`: review the matching representation LoopRun directory and
+  linked run evidence.
+- `blind vs representation`: review the experiment folder under
+  `projects/synthetic_regression/experiments/blind_vs_representation/` together
+  with `results/leaderboard.csv` and the saved `compare_loop_runs` JSON.
+
+Git tracks reviewable result records such as leaderboards, reports, run
+metadata, fold metrics, candidate snapshots, loop manifests, and iteration CSVs;
+generated submission files remain ignored.

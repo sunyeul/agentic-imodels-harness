@@ -1,0 +1,28 @@
+{
+  "dimension_scores": {
+    "counterfactual": {
+      "rationale": "Dominant positive, negative, squared, and interaction terms support qualitative increase/decrease reasoning, but exact threshold counterfactuals are limited by omitted smaller coefficients and standardized feature scaling.",
+      "score": 0.72
+    },
+    "feature_effects": {
+      "rationale": "The top learned basis terms include signed coefficients and relative magnitudes, making the main feature effects and interaction directions clear.",
+      "score": 0.9
+    },
+    "prediction": {
+      "rationale": "The model string gives the preprocessing, polynomial RidgeCV family, intercept, selected alpha, and top terms, but it does not provide the complete coefficient set needed for exact prediction.",
+      "score": 0.78
+    },
+    "sensitivity": {
+      "rationale": "Feature changes can be tied to output direction and approximate magnitude for the listed dominant terms, while interactions, squared terms, and omitted coefficients prevent complete local sensitivity calculations.",
+      "score": 0.8
+    },
+    "structure": {
+      "rationale": "The model family, z-scoring, degree-2 polynomial expansion, ridge regularization, CV selection, and counts of linear, squared, and pairwise interaction terms are explicit.",
+      "score": 0.95
+    }
+  },
+  "interpretability_score": 0.83,
+  "project_id": "synthetic_regression",
+  "rubric_version": "agentic-imodels-agent-facing-v1",
+  "run_id": "20260620T170011Z"
+}

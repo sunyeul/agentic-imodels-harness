@@ -1,0 +1,33 @@
+{
+  "allowed_artifacts": [
+    "leaderboard",
+    "sanitized_report",
+    "fold_metrics",
+    "run_metadata",
+    "error_traceback",
+    "score_movement"
+  ],
+  "candidate_workspace_path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_002_blind_causal_control/workspace/candidate_model.py",
+  "condition": "blind",
+  "editable_files": [
+    {
+      "artifact": "candidate_workspace",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_002_blind_causal_control/workspace/candidate_model.py",
+      "sha256": "0ec48409ff694e26e37ea211aab5f71875cc372b330c271dd5d9cca6254f70f0"
+    }
+  ],
+  "files": [
+    {
+      "artifact": "leaderboard",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_002_blind_causal_control/agent_input_bundle/iteration_1/leaderboard.csv",
+      "sha256": "87c1c3e1a0fe5d1b76772f89062f66a077eebc074b1c1fa4eb0982fb55e8be24"
+    }
+  ],
+  "forbidden_artifacts": [
+    "model_string",
+    "interpretability_packet",
+    "candidate_snapshot"
+  ],
+  "iteration_index": 1,
+  "loop_run_id": "bvr_20260621_002_blind_causal_control"
+}

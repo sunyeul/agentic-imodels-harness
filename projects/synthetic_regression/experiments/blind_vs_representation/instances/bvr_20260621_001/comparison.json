@@ -1,0 +1,20 @@
+{
+  "left": {
+    "best_score_at_budget": 0.8486066058537377,
+    "condition": "representation",
+    "failed_edit_rate": 0.0,
+    "gain_per_iteration": 0.03721926937316618,
+    "iterations_to_target": null,
+    "loop_run_id": "bvr_20260621_001_representation_causal",
+    "regression_rate": 0.25
+  },
+  "right": {
+    "best_score_at_budget": 0.951539119940656,
+    "condition": "blind",
+    "failed_edit_rate": 0.0,
+    "gain_per_iteration": 0.01737105434513562,
+    "iterations_to_target": null,
+    "loop_run_id": "bvr_20260621_002_blind_causal_control",
+    "regression_rate": 0.25
+  }
+}

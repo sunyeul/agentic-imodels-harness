@@ -6,7 +6,7 @@ import shutil
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, TypedDict, cast
 
 import pandas as pd
 
@@ -41,6 +41,23 @@ class LoopRunManifest:
     primary_metric: str
     primary_metric_direction: str
     candidate_workspace_path: str
+    experiment_name: str = ""
+    experiment_id: str = ""
+
+
+class LoopSummary(TypedDict):
+    loop_run_id: str
+    condition: ConditionName
+    best_score_at_budget: float
+    gain_per_iteration: float
+    regression_rate: float
+    failed_edit_rate: float
+    iterations_to_target: int | None
+
+
+class LoopComparison(TypedDict):
+    left: LoopSummary
+    right: LoopSummary
 
 
 REPRESENTATION_SPEC = ConditionSpec(
@@ -83,12 +100,15 @@ CONDITION_SPECS = {
     BLIND_SPEC.name: BLIND_SPEC,
 }
 
+HANDOFF_PROMPT_FILENAME = "design_handoff_prompt.md"
+PRE_DESIGN_RATIONALE_FILENAME = "pre_design_rationale.md"
+
 
 def condition_spec(name: str | None = None) -> ConditionSpec:
     condition_name = name or REPRESENTATION_SPEC.name
     if condition_name not in CONDITION_SPECS:
         raise ValueError(f"Unknown condition: {condition_name}")
-    return CONDITION_SPECS[condition_name]
+    return CONDITION_SPECS[cast(ConditionName, condition_name)]
 
 
 def init_loop_run(
@@ -98,8 +118,12 @@ def init_loop_run(
     budget: int,
     agent_model: str,
     loop_run_id: str | None = None,
+    experiment_name: str = "",
+    experiment_id: str = "",
 ) -> LoopRunManifest:
     spec = condition_spec(condition)
+    if bool(experiment_name) != bool(experiment_id):
+        raise ValueError("experiment_name and experiment_id must be provided together")
     if budget < 1:
         raise ValueError("budget must be at least 1")
     if not agent_model.strip():
@@ -129,6 +153,8 @@ def init_loop_run(
         primary_metric=str(spec_metadata["primary_metric"]),
         primary_metric_direction=str(spec_metadata["primary_metric_direction"]),
         candidate_workspace_path=str(candidate_workspace_path.resolve()),
+        experiment_name=experiment_name,
+        experiment_id=experiment_id,
     )
     write_loop_manifest(project.results_dir, manifest)
     _ensure_iterations(project.results_dir, loop_run_id)
@@ -201,13 +227,30 @@ def prepare_iteration(
             shutil.copy2(packet_path, target)
             files.append(_file_record("interpretability_packet", target))
 
+    candidate_workspace_path = Path(manifest.candidate_workspace_path)
+    editable_files = [_file_record("candidate_workspace", candidate_workspace_path)]
+    pre_design_rationale_path = bundle_dir / PRE_DESIGN_RATIONALE_FILENAME
+    _write_pre_design_rationale_template(
+        pre_design_rationale_path,
+        manifest=manifest,
+        spec=spec,
+        iteration_index=iteration_index,
+    )
     manifest_path = bundle_dir / "input_manifest.json"
     manifest_path.write_text(
         json.dumps(
             {
                 "loop_run_id": loop_run_id,
                 "condition": manifest.condition,
+                "experiment_name": manifest.experiment_name,
+                "experiment_id": manifest.experiment_id,
                 "iteration_index": iteration_index,
+                "candidate_workspace_path": str(candidate_workspace_path.resolve()),
+                "pre_design_rationale_path": str(pre_design_rationale_path.resolve()),
+                "editable_files": editable_files,
+                "writable_artifacts": [
+                    _file_record("pre_design_rationale", pre_design_rationale_path)
+                ],
                 "allowed_artifacts": list(spec.allowed_artifacts),
                 "forbidden_artifacts": list(spec.forbidden_artifacts),
                 "files": files,
@@ -217,7 +260,34 @@ def prepare_iteration(
         )
         + "\n"
     )
+    _write_design_handoff_prompt(
+        bundle_dir / HANDOFF_PROMPT_FILENAME,
+        manifest=manifest,
+        spec=spec,
+        input_manifest_path=manifest_path,
+    )
     return manifest_path
+
+
+def handoff_prompt_path(
+    results_dir: str | Path,
+    loop_run_id: str,
+    *,
+    iteration_index: int,
+) -> Path:
+    path = (
+        loop_run_dir(results_dir, loop_run_id)
+        / "agent_input_bundle"
+        / f"iteration_{iteration_index}"
+        / HANDOFF_PROMPT_FILENAME
+    )
+    if not path.exists():
+        prepare_iteration(
+            results_dir,
+            loop_run_id,
+            iteration_index=iteration_index,
+        )
+    return path
 
 
 def record_iteration(
@@ -251,6 +321,8 @@ def record_iteration(
             run_id=run_id,
             loop_run_id=loop_run_id,
             condition=manifest.condition,
+            experiment_name=manifest.experiment_name,
+            experiment_id=manifest.experiment_id,
             iteration_index=iteration_index,
             budget=manifest.budget,
             agent_model=manifest.agent_model,
@@ -299,6 +371,7 @@ def verify_loop_run(results_dir: str | Path, loop_run_id: str) -> list[str]:
             / "input_manifest.json"
         )
         findings.extend(_verify_input_manifest(input_manifest, spec))
+    findings.extend(_verify_iteration_progress(results_dir, manifest, iterations))
     return findings
 
 
@@ -308,7 +381,7 @@ def compare_loop_runs(
     right_loop_run_id: str,
     *,
     target: float | None = None,
-) -> dict[str, object]:
+) -> LoopComparison:
     left_manifest = load_loop_manifest(results_dir, left_loop_run_id)
     right_manifest = load_loop_manifest(results_dir, right_loop_run_id)
     mismatches = _compatibility_mismatches(left_manifest, right_manifest)
@@ -407,9 +480,12 @@ def _append_iteration(
         columns=_ITERATION_COLUMNS,
     )
     iterations = iterations[iterations["iteration_index"] != iteration_index]
-    pd.concat([iterations, new_row], ignore_index=True).sort_values(
-        "iteration_index"
-    ).to_csv(path, index=False)
+    (
+        pd.concat([iterations, new_row], ignore_index=True)
+        .set_index("iteration_index", drop=False)
+        .sort_index()
+        .to_csv(path, index=False)
+    )
 
 
 def _append_failed_iteration(
@@ -438,9 +514,12 @@ def _append_failed_iteration(
         columns=_ITERATION_COLUMNS,
     )
     iterations = iterations[iterations["iteration_index"] != iteration_index]
-    pd.concat([iterations, new_row], ignore_index=True).sort_values(
-        "iteration_index"
-    ).to_csv(path, index=False)
+    (
+        pd.concat([iterations, new_row], ignore_index=True)
+        .set_index("iteration_index", drop=False)
+        .sort_index()
+        .to_csv(path, index=False)
+    )
 
 
 def _previous_iteration_row(
@@ -450,7 +529,12 @@ def _previous_iteration_row(
     previous = iterations[iterations["iteration_index"] < iteration_index]
     if previous.empty:
         return None
-    return previous.sort_values("iteration_index").iloc[-1].to_dict()
+    return (
+        previous.set_index("iteration_index", drop=False)
+        .sort_index()
+        .iloc[-1]
+        .to_dict()
+    )
 
 
 def _write_loop_leaderboard_slice(
@@ -469,8 +553,7 @@ def _write_loop_leaderboard_slice(
             columns=[
                 column
                 for column in leaderboard.columns
-                if "candidate_snapshot" in column
-                or "interpretability_packet" in column
+                if "candidate_snapshot" in column or "interpretability_packet" in column
             ],
             errors="ignore",
         )
@@ -486,6 +569,139 @@ def _write_blind_run_metadata(source: Path, target: Path) -> None:
                 del artifacts[key]
     payload.pop("candidate_snapshot_path", None)
     target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def _write_design_handoff_prompt(
+    path: Path,
+    *,
+    manifest: LoopRunManifest,
+    spec: ConditionSpec,
+    input_manifest_path: Path,
+) -> None:
+    forbidden = ", ".join(spec.forbidden_artifacts) or "none"
+    rationale_path = input_manifest_path.with_name(PRE_DESIGN_RATIONALE_FILENAME)
+    prompt = f"""# LoopRun Design Handoff
+
+You are the condition-specific model designer for one LoopRun iteration.
+
+- Loop run id: `{manifest.loop_run_id}`
+- Condition: `{manifest.condition}`
+- Input manifest: `{input_manifest_path.resolve()}`
+- Editable candidate file: `{Path(manifest.candidate_workspace_path).resolve()}`
+- Pre-design rationale artifact: `{rationale_path.resolve()}`
+- Primary metric: `{manifest.primary_metric}`
+- Primary metric direction: `{manifest.primary_metric_direction}`
+- Budget: `{manifest.budget}`
+- Forbidden artifacts for this condition: {forbidden}
+
+Rules:
+
+1. Read the input manifest first.
+2. Inspect only files listed in the manifest `files` array.
+3. Before editing, complete the pre-design rationale template in your response
+   and mirror it into the `pre_design_rationale_path` from the input manifest
+   when the session can write files. This rationale is evidence for whether
+   condition-specific artifacts shaped the modeling hypothesis.
+4. Edit only the manifest `candidate_workspace_path` or a path listed in
+   `editable_files`; the only other writable artifact is the pre-design
+   rationale file listed in `writable_artifacts`.
+5. Use exactly one modeling hypothesis for this iteration.
+6. Prefer a material `fit`/`predict` behavior change that can move the primary
+   metric. A text-only representation change is allowed only if an
+   interpretability judgment will be applied before the next iteration.
+7. For representation condition, translate each representation-derived cue into
+   a concrete predictive mechanism expected to improve the primary metric. Do
+   not use representation evidence only to preserve readability, remove
+   hard-to-render terms, or raise interpretability. If allowed evidence shows
+   that squared terms, pairwise interactions, hinges, or other broader basis
+   terms improved RMSE, prefer refining that predictive structure and exposing
+   dominant terms in `__str__` over simplifying to a weaker additive model.
+   The default iteration objective is primary-metric improvement; judged
+   interpretability is evidence about the representation, not a substitute for
+   a performance-improving candidate.
+8. Do not run `prepare`, `record`, `verify`, or final comparison commands.
+9. Do not inspect project-wide `results/`, raw competition data, hidden targets,
+   generator/oracle internals, condition-disallowed artifacts, candidate
+   snapshots unless explicitly listed, or artifacts from another condition.
+
+## Pre-Design Rationale Template
+
+Fill this before describing code edits:
+
+- Allowed artifacts inspected:
+- Score movement observed:
+- Representation-derived cues used:
+- Predictive mechanism inferred from representation cues:
+- Candidate hypothesis:
+- Why this hypothesis follows from the allowed evidence:
+- Why this should improve the primary metric rather than only the model string:
+- Why any interpretability tradeoff is acceptable for the performance goal:
+- Alternatives considered and rejected:
+- Expected metric movement:
+- Failure signal:
+
+For blind condition, `Representation-derived cues used` must be
+`N/A - forbidden by condition`. For representation condition, cite the specific
+model string, interpretability packet, report, or judgment cue that influenced
+the hypothesis, or write `None` if the hypothesis did not use representation
+cues.
+
+Return the completed pre-design rationale, modeling hypothesis, files
+inspected, candidate file changed, and one risk for the runner to check after
+`record`.
+"""
+    path.write_text(prompt)
+
+
+def _write_pre_design_rationale_template(
+    path: Path,
+    *,
+    manifest: LoopRunManifest,
+    spec: ConditionSpec,
+    iteration_index: int,
+) -> None:
+    representation_cue_default = (
+        "N/A - forbidden by condition"
+        if spec.name == "blind"
+        else "Manual entry required"
+    )
+    path.write_text(
+        "\n".join(
+            [
+                "# Pre-Design Rationale",
+                "",
+                f"- Loop run id: `{manifest.loop_run_id}`",
+                f"- Condition: `{manifest.condition}`",
+                f"- Iteration: `{iteration_index}`",
+                f"- Primary metric: `{manifest.primary_metric}`",
+                f"- Primary metric direction: `{manifest.primary_metric_direction}`",
+                "",
+                "## Context Boundary",
+                "",
+                "- Allowed artifacts inspected: Manual entry required",
+                "- Forbidden artifacts not inspected: Manual entry required",
+                "- Files inspected: Manual entry required",
+                "",
+                "## Causal Trace",
+                "",
+                "- Score movement observed: Manual entry required",
+                f"- Representation-derived cues used: {representation_cue_default}",
+                "- Predictive mechanism inferred from representation cues: "
+                "Manual entry required",
+                "- Candidate hypothesis: Manual entry required",
+                "- Why this hypothesis follows from the allowed evidence: "
+                "Manual entry required",
+                "- Why this should improve the primary metric rather than only "
+                "the model string: Manual entry required",
+                "- Why any interpretability tradeoff is acceptable for the "
+                "performance goal: Manual entry required",
+                "- Alternatives considered and rejected: Manual entry required",
+                "- Expected metric movement: Manual entry required",
+                "- Failure signal: Manual entry required",
+                "",
+            ]
+        )
+    )
 
 
 def _file_record(artifact: str, path: Path) -> dict[str, str]:
@@ -527,7 +743,13 @@ def _verify_input_manifest(path: Path, spec: ConditionSpec) -> list[str]:
     bundle_text = "\n".join(
         file_path.read_text(errors="ignore")
         for file_path in path.parent.rglob("*")
-        if file_path.is_file() and file_path.name != "input_manifest.json"
+        if file_path.is_file()
+        and file_path.name
+        not in {
+            "input_manifest.json",
+            HANDOFF_PROMPT_FILENAME,
+            PRE_DESIGN_RATIONALE_FILENAME,
+        }
     )
     for forbidden in spec.forbidden_artifacts:
         if forbidden in bundle_text:
@@ -537,6 +759,123 @@ def _verify_input_manifest(path: Path, spec: ConditionSpec) -> list[str]:
     if not any(item.startswith("FAIL") for item in findings):
         findings.append(f"PASS condition_fairness: {spec.name}")
     return findings
+
+
+def _verify_iteration_progress(
+    results_dir: str | Path,
+    manifest: LoopRunManifest,
+    iterations: pd.DataFrame,
+) -> list[str]:
+    if iterations.empty:
+        return []
+    successful = iterations[iterations["status"] == "success"]
+    if successful.empty:
+        return []
+
+    findings: list[str] = []
+    leaderboard = _read_optional_leaderboard(results_dir)
+    previous_row: dict[str, object] | None = None
+    for row in (
+        successful.set_index("iteration_index", drop=False)
+        .sort_index()
+        .to_dict("records")
+    ):
+        iteration = int(row["iteration_index"])
+        candidate_sha = str(row.get("candidate_sha256", ""))
+        if previous_row is None:
+            if candidate_sha == manifest.baseline_candidate_sha256:
+                findings.append(
+                    "FAIL iteration_progress: iteration 1 candidate matches "
+                    "baseline candidate; design did not change the model"
+                )
+            else:
+                findings.append(
+                    "PASS iteration_progress: iteration 1 candidate differs "
+                    "from baseline candidate"
+                )
+            previous_row = row
+            continue
+
+        previous_iteration = int(
+            cast(int | float | str, previous_row["iteration_index"])
+        )
+        previous_sha = str(previous_row.get("candidate_sha256", ""))
+        if candidate_sha == previous_sha:
+            findings.append(
+                "FAIL iteration_progress: iteration "
+                f"{iteration} candidate hash matches iteration "
+                f"{previous_iteration}; no candidate edit was recorded"
+            )
+            previous_row = row
+            continue
+
+        previous_score = _float_or_nan(previous_row.get("primary_metric_value"))
+        current_score = _float_or_nan(row.get("primary_metric_value"))
+        if (
+            not math.isnan(previous_score)
+            and not math.isnan(current_score)
+            and math.isclose(previous_score, current_score, rel_tol=0.0, abs_tol=1e-12)
+        ):
+            if _interpretability_improved(
+                leaderboard,
+                previous_run_id=str(previous_row.get("evaluation_run_id", "")),
+                current_run_id=str(row.get("evaluation_run_id", "")),
+            ):
+                findings.append(
+                    "PASS iteration_progress: iteration "
+                    f"{iteration} primary metric was unchanged, but judged "
+                    "interpretability improved"
+                )
+            else:
+                findings.append(
+                    "FAIL iteration_progress: iteration "
+                    f"{iteration} changed candidate hash but left "
+                    f"{manifest.primary_metric} unchanged without judged "
+                    "interpretability improvement"
+                )
+        else:
+            findings.append(
+                "PASS iteration_progress: iteration "
+                f"{iteration} changed candidate hash and moved "
+                f"{manifest.primary_metric} from {previous_score} to {current_score}"
+            )
+        previous_row = row
+    return findings
+
+
+def _read_optional_leaderboard(results_dir: str | Path) -> pd.DataFrame:
+    path = Path(results_dir) / "leaderboard.csv"
+    if not path.exists():
+        return pd.DataFrame()
+    return pd.read_csv(path)
+
+
+def _interpretability_improved(
+    leaderboard: pd.DataFrame,
+    *,
+    previous_run_id: str,
+    current_run_id: str,
+) -> bool:
+    if leaderboard.empty or "interpretability_score" not in leaderboard.columns:
+        return False
+    previous = leaderboard[leaderboard["run_id"] == previous_run_id]
+    current = leaderboard[leaderboard["run_id"] == current_run_id]
+    if previous.empty or current.empty:
+        return False
+    previous_score = _float_or_nan(previous.iloc[-1].get("interpretability_score"))
+    current_score = _float_or_nan(current.iloc[-1].get("interpretability_score"))
+    return (
+        not math.isnan(previous_score)
+        and not math.isnan(current_score)
+        and current_score > previous_score
+    )
+
+
+def _float_or_nan(value: object) -> float:
+    try:
+        return float(cast(Any, value))
+    except (TypeError, ValueError):
+        return float("nan")
 
 
 def _compatibility_mismatches(
@@ -562,7 +901,7 @@ def _compatibility_mismatches(
 
 def _loop_summary(
     results_dir: str | Path, manifest: LoopRunManifest, *, target: float | None
-) -> dict[str, object]:
+) -> LoopSummary:
     iterations = read_iterations(results_dir, manifest.loop_run_id)
     scores = [
         float(value)

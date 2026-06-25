@@ -68,12 +68,49 @@ def candidate_module_path(candidate_module: str, *, root: str | Path = ".") -> P
     return repo_root(root) / f"{candidate_module.replace('.', '/')}.py"
 
 
-def journal_dir_for_results(results_dir: str | Path) -> Path:
-    return Path(results_dir).resolve().parent / "experiments" / "journal"
+def journal_dir_for_results(
+    results_dir: str | Path,
+    *,
+    experiment_name: str = "",
+    experiment_id: str = "",
+) -> Path:
+    if bool(experiment_name) != bool(experiment_id):
+        raise ValueError("experiment_name and experiment_id must be provided together")
+    if not experiment_name:
+        experiment_name = "standalone"
+        experiment_id = "default"
+    return (
+        Path(results_dir).resolve().parent
+        / "experiments"
+        / experiment_name
+        / "instances"
+        / experiment_id
+        / "journals"
+    )
 
 
-def journal_path_for_run(results_dir: str | Path, run_id: str) -> Path:
-    return journal_dir_for_results(results_dir) / f"{run_id}.md"
+def journal_path_for_run(
+    results_dir: str | Path,
+    run_id: str,
+    *,
+    experiment_name: str = "",
+    experiment_id: str = "",
+) -> Path:
+    default_path = (
+        journal_dir_for_results(
+            results_dir,
+            experiment_name=experiment_name,
+            experiment_id=experiment_id,
+        )
+        / f"{run_id}.md"
+    )
+    if default_path.exists():
+        return default_path
+    experiments_dir = Path(results_dir).resolve().parent / "experiments"
+    matches = sorted(experiments_dir.glob(f"*/instances/*/journals/{run_id}.md"))
+    if matches:
+        return matches[0]
+    return default_path
 
 
 def write_experiment_journal(
@@ -95,8 +132,15 @@ def write_experiment_journal(
     interpretability_status: str,
     interpretability_score: float,
     baseline_run_id: str,
+    agent_input_manifest_path: str | Path = "",
+    experiment_name: str = "",
+    experiment_id: str = "",
 ) -> Path:
-    journal_dir = journal_dir_for_results(results_dir)
+    journal_dir = journal_dir_for_results(
+        results_dir,
+        experiment_name=experiment_name,
+        experiment_id=experiment_id,
+    )
     journal_dir.mkdir(parents=True, exist_ok=True)
     path = journal_dir / f"{run_id}.md"
     if primary_metric_direction == "minimize":
@@ -110,6 +154,10 @@ def write_experiment_journal(
         f"({primary_metric_direction}; {metric_direction})"
     )
     interpretability_score_text = _format_optional_score(interpretability_score)
+    agent_manifest_text = (
+        str(agent_input_manifest_path) if agent_input_manifest_path else "N/A"
+    )
+    pre_design_rationale_text = _pre_design_rationale_path(agent_input_manifest_path)
     path.write_text(
         "\n".join(
             [
@@ -143,10 +191,27 @@ def write_experiment_journal(
                 f"- Report: {report_path}",
                 f"- Run metadata: {run_metadata_path}",
                 f"- Candidate snapshot: {candidate_snapshot_path}",
+                f"- Agent input manifest: {agent_manifest_text}",
+                f"- Pre-design rationale: {pre_design_rationale_text}",
+                "",
+                "## Design Rationale",
+                "",
+                "- Representation-derived cues used: Manual entry required",
+                "- Predictive mechanism: Manual entry required",
+                "- Candidate edit summary: Manual entry required",
+                "- Expected metric movement: Manual entry required",
+                "- Causal trace status: Manual entry required",
                 "",
                 "## Judgment Rationale",
                 "",
                 "- Manual entry required",
+                "",
+                "## Outcome Review",
+                "",
+                "- Score movement versus previous iteration: Manual entry required",
+                "- Primary-metric result matched expectation: Manual entry required",
+                "- Lesson for next iteration: Manual entry required",
+                "- Comparison eligibility: Manual entry required",
                 "",
                 "## Next Action",
                 "",
@@ -156,6 +221,12 @@ def write_experiment_journal(
         )
     )
     return path
+
+
+def _pre_design_rationale_path(agent_input_manifest_path: str | Path) -> str:
+    if not agent_input_manifest_path:
+        return "N/A"
+    return str(Path(agent_input_manifest_path).with_name("pre_design_rationale.md"))
 
 
 def _format_optional_score(score: float) -> str:

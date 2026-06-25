@@ -1,0 +1,50 @@
+{
+  "allowed_artifacts": [
+    "leaderboard",
+    "report",
+    "fold_metrics",
+    "run_metadata",
+    "error_traceback",
+    "model_string",
+    "interpretability_packet"
+  ],
+  "candidate_workspace_path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_001_representation_causal/workspace/candidate_model.py",
+  "condition": "representation",
+  "editable_files": [
+    {
+      "artifact": "candidate_workspace",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_001_representation_causal/workspace/candidate_model.py",
+      "sha256": "a572f51dfc8bab6e35f687d1d26dba1430e02cc350ba2f494f49c3522d0579d8"
+    }
+  ],
+  "files": [
+    {
+      "artifact": "leaderboard",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_001_representation_causal/agent_input_bundle/iteration_2/leaderboard.csv",
+      "sha256": "26d55c7059d64cfaea21c867283347135674b228bfa83bb53d9f32177c29f502"
+    },
+    {
+      "artifact": "report",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_001_representation_causal/agent_input_bundle/iteration_2/report.md",
+      "sha256": "fa736c7bb8996cbf8e095f6829a5dbaa1311b4168117d75a2041ef8a52fdaa76"
+    },
+    {
+      "artifact": "fold_metrics",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_001_representation_causal/agent_input_bundle/iteration_2/fold_metrics.json",
+      "sha256": "e069e2161cac220746ae6ad281ff868aa225f78ccad87f57da69cb01e71b4298"
+    },
+    {
+      "artifact": "run_metadata",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_001_representation_causal/agent_input_bundle/iteration_2/run_metadata.json",
+      "sha256": "1e2ed202abee1ad092584984a7f8264bab3490c688e6b8050e3c1b3dc4589895"
+    },
+    {
+      "artifact": "interpretability_packet",
+      "path": "/home/res1235/workspace/agentic-imodels-harness/projects/synthetic_regression/results/loop_runs/bvr_20260621_001_representation_causal/agent_input_bundle/iteration_2/interpretability_packet.json",
+      "sha256": "6d1ab3f19353ea86cc90680505b139d3b64a6438d9084d43e4e65bcc328289df"
+    }
+  ],
+  "forbidden_artifacts": [],
+  "iteration_index": 2,
+  "loop_run_id": "bvr_20260621_001_representation_causal"
+}

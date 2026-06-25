@@ -1,0 +1,27 @@
+{
+  "dimension_scores": {
+    "counterfactual": {
+      "rationale": "The text states that positive standardized basis terms increase predictions and negative terms decrease predictions, and lists dominant linear, squared, and interaction terms, but omitted nonzero terms and missing standardization details limit complete input-change answers.",
+      "score": 0.7
+    },
+    "feature_effects": {
+      "rationale": "The model string lists top learned basis terms with signed coefficients and explains sign direction, giving clear relative importance for the dominant effects, though not every nonzero term is shown.",
+      "score": 0.9
+    },
+    "prediction": {
+      "rationale": "The representation gives the model family, preprocessing, basis expansion, intercept, selected hyperparameters, and top coefficients, but it does not provide all 42 nonzero coefficients or the standardization parameters needed for exact calculation.",
+      "score": 0.7
+    },
+    "sensitivity": {
+      "rationale": "Dominant signed coefficients support direction and some relative magnitude reasoning for standardized basis changes, but squared and interaction terms plus omitted coefficients make full local sensitivity incomplete.",
+      "score": 0.75
+    },
+    "structure": {
+      "rationale": "The text explicitly describes sparse polynomial ElasticNetCV regression, z-scoring, degree-2 basis construction, basis standardization, CV-selected penalty settings, and the number of linear, quadratic, interaction, and nonzero terms.",
+      "score": 0.95
+    }
+  },
+  "interpretability_score": 0.8,
+  "rubric_version": "agentic-imodels-agent-facing-v1",
+  "run_id": "20260620T175142Z"
+}

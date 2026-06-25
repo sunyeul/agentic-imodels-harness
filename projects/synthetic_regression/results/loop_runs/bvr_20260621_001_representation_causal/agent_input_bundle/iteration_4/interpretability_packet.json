@@ -1,0 +1,95 @@
+{
+  "calibration_guide": {
+    "counterfactual": {
+      "high": "Increase/decrease or threshold changes can be answered from the text.",
+      "low": "Input-change questions cannot be answered from the representation.",
+      "medium": "Some counterfactual direction is possible but incomplete."
+    },
+    "feature_effects": {
+      "high": "Feature signs, coefficients, importances, or ranked effects are shown.",
+      "low": "No usable feature-level attribution is provided.",
+      "medium": "Some relevant features are named without clear direction or magnitude."
+    },
+    "prediction": {
+      "high": "Explicit equation, rule list, tree path, or calculation procedure.",
+      "low": "Only a vague predictor name or black-box description is available.",
+      "medium": "Model family is named but exact output calculation is partial."
+    },
+    "sensitivity": {
+      "high": "A feature change can be tied to output direction or magnitude.",
+      "low": "The representation does not support sensitivity reasoning.",
+      "medium": "Direction can be guessed but magnitude/local effect is unclear."
+    },
+    "structure": {
+      "high": "Model family and internal structure are explicit.",
+      "low": "No model structure is exposed.",
+      "medium": "Model family is named but structure is mostly hidden."
+    }
+  },
+  "model_string": "Sparse cubic ElasticNetCV regression over original features, squared terms, pairwise interactions, and third-order polynomial terms. Prediction equation in retained expanded terms: y = 0.386 + 2.349*x0 + -1.522*x1 + 0.403*x2 + 0.149*x5 + 0.082*x6 + 0.420*x7 + -0.161*x8 + 0.128*x9 + -0.004*x0^2 + -0.010*x0 x2 + 0.024*x0 x7 + -0.011*x0 x11 + 0.033*x1 x2 + 0.317*x2^2 + 1.269*x3 x4 + -0.005*x3 x14 + -0.006*x4 x11 + 0.027*x5 x7 + -0.264*x6 x8 + -0.009*x6 x13 + -0.023*x7 x12 + 0.265*x8^2 + -0.033*x9^2 + 0.004*x9 x14 + 0.007*x10 x12 + 0.034*x0^2 x2 + 0.009*x0^2 x6 + 0.034*x0 x2 x4 + 0.003*x0 x4^2 + -0.003*x1^3 + 0.007*x1^2 x5 + -0.004*x1 x2^2 + -0.026*x1 x4^2 + -0.003*x1 x12^2 + 0.053*x2^3 + 0.000*x2^2 x13 + -0.036*x2 x5 x12 + 0.003*x2 x6^2 + -0.002*x2 x7 x13 + 0.019*x2 x8^2 + -0.018*x2 x8 x10 + 0.034*x2 x10^2 + -0.006*x3^2 x7 + -0.025*x3 x4 x8 + -0.006*x3 x6 x14 + 0.006*x3 x7 x14 + -0.007*x3 x8^2 + 0.002*x3 x10^2 + 0.015*x4^2 x5 + 0.003*x4^2 x6 + -0.015*x4^2 x8 + 0.027*x4 x7 x10 + -0.037*x5^3 + -0.000*x5 x6 x8 + 0.004*x5 x7^2 + 0.024*x5 x8^2 + -0.006*x5 x9 x13 + 0.025*x5 x12^2 + 0.004*x5 x14^2 + 0.011*x6^2 x7 + -0.037*x6^2 x8 + 0.195*x6 x7^2 + 0.007*x6 x7 x12 + -0.129*x6 x8^2 + 0.003*x6 x10^2 + 0.024*x6 x12 x14 + -0.013*x7^2 x13 + -0.063*x7 x9 x12 + 0.005*x7 x10^2 + -0.007*x8^3 + 0.007*x8 x10 x13 + -0.011*x9 x10 x12. Selected ElasticNet alpha: 0.04344; selected l1_ratio: 1.00. Active expanded terms: 72; zeroed weak expanded terms: 743; active terms by degree: linear: 8, quadratic: 17, cubic: 47. Top absolute active coefficient terms: x0 (2.349), x1 (-1.522), x3 x4 (1.269), x7 (0.420), x2 (0.403), x2^2 (0.317), x8^2 (0.265), x6 x8 (-0.264), x6 x7^2 (0.195), x8 (-0.161), x5 (0.149), x6 x8^2 (-0.129), x9 (0.128), x6 (0.082), x7 x9 x12 (-0.063). Top retained cubic terms: x6 x7^2 (0.195), x6 x8^2 (-0.129), x7 x9 x12 (-0.063), x2^3 (0.053), x6^2 x8 (-0.037), x5^3 (-0.037), x2 x5 x12 (-0.036), x2 x10^2 (0.034). Coefficients are shown after converting standardized polynomial terms back to their expanded-feature units. If the equation is truncated, omitted active terms are smaller than the displayed dominant terms but are still used by predict(); terms not shown because they were zeroed have exact zero coefficients from the sparse penalty. Positive active terms raise the prediction as their expanded value increases; negative active terms lower it. Counterfactual sensitivity is local and additive in this retained expanded basis, so changing an original feature can affect its linear term, squared/cubic powers, and retained interactions that include it.",
+  "output_schema": {
+    "dimension_scores": {
+      "counterfactual": {
+        "rationale": "short evidence-based explanation",
+        "score": "float in [0.0, 1.0]"
+      },
+      "feature_effects": {
+        "rationale": "short evidence-based explanation",
+        "score": "float in [0.0, 1.0]"
+      },
+      "prediction": {
+        "rationale": "short evidence-based explanation",
+        "score": "float in [0.0, 1.0]"
+      },
+      "sensitivity": {
+        "rationale": "short evidence-based explanation",
+        "score": "float in [0.0, 1.0]"
+      },
+      "structure": {
+        "rationale": "short evidence-based explanation",
+        "score": "float in [0.0, 1.0]"
+      }
+    },
+    "interpretability_score": "mean of dimension score values, rounded to 4 decimals",
+    "project_id": "string matching this packet",
+    "rubric_version": "agentic-imodels-agent-facing-v1",
+    "run_id": "string matching this packet"
+  },
+  "project_id": "synthetic_regression",
+  "questions": [
+    {
+      "dimension": "prediction",
+      "question": "Can an agent infer how the model computes predictions?",
+      "rubric": "Score high when the model string exposes an equation, rules, or other usable prediction procedure."
+    },
+    {
+      "dimension": "feature_effects",
+      "question": "Can an agent identify feature directions or relative importance?",
+      "rubric": "Score high when feature effects, coefficients, importances, or signs are clear from the model string."
+    },
+    {
+      "dimension": "sensitivity",
+      "question": "Can an agent reason about how changing a feature changes output?",
+      "rubric": "Score high when the model string supports local sensitivity or marginal-effect reasoning."
+    },
+    {
+      "dimension": "counterfactual",
+      "question": "Can an agent answer counterfactual input-change questions?",
+      "rubric": "Score high when the model string makes it possible to reason about increase/decrease or threshold counterfactuals."
+    },
+    {
+      "dimension": "structure",
+      "question": "Can an agent describe the model structure?",
+      "rubric": "Score high when the model family, transformations, interactions, rules, or simplicity constraints are explicit."
+    }
+  ],
+  "rubric_version": "agentic-imodels-agent-facing-v1",
+  "run_id": "20260620T161400Z",
+  "scoring_dimensions": [
+    "prediction",
+    "feature_effects",
+    "sensitivity",
+    "counterfactual",
+    "structure"
+  ]
+}

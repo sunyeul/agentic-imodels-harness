@@ -1,0 +1,27 @@
+{
+  "dimension_scores": {
+    "counterfactual": {
+      "rationale": "The text states how positive and negative dominant standardized basis terms affect predictions, so directional increase/decrease counterfactuals are possible, but exact changes and thresholds are limited by omitted ridge-shrunk terms.",
+      "score": 0.75
+    },
+    "feature_effects": {
+      "rationale": "Top learned basis terms are listed with signed coefficients and the text explains that positive coefficients increase predictions while negative coefficients decrease them.",
+      "score": 0.9
+    },
+    "prediction": {
+      "rationale": "The model family, preprocessing, degree-2 basis expansion, ridge selection, intercept, and dominant coefficients are described, but the full coefficient list needed for exact output calculation is not shown.",
+      "score": 0.85
+    },
+    "sensitivity": {
+      "rationale": "Sensitivity can be inferred for dominant linear, squared, and interaction terms from their signs and magnitudes, though feature-level effects are context-dependent and smaller terms are omitted.",
+      "score": 0.8
+    },
+    "structure": {
+      "rationale": "The representation clearly names Polynomial RidgeCV regression, z-scoring, standardized degree-2 linear, squared, and interaction basis terms, alpha selection, basis counts, and the degree constraint.",
+      "score": 0.95
+    }
+  },
+  "interpretability_score": 0.85,
+  "rubric_version": "agentic-imodels-agent-facing-v1",
+  "run_id": "20260620T173855Z"
+}

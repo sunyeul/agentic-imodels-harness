@@ -7,80 +7,49 @@ description: Use when running or improving a toy AGENTIC-IMODELS single-dataset 
 
 Use this skill for repeatable model-iteration work in this repository.
 
+Follow repo-wide role boundaries in `AGENTS.md` when present.
+
+## Required Reading
+
+Before acting, read:
+
+- `references/experiment-rules.md`
+- `references/scoring-contract.md`
+- `references/workflow.md`
+
+Use the workflow reference to choose the current session scope before inspecting
+artifacts or editing code.
+
+## Session Scope
+
+- Setup, management, verification, and comparison requests stay in that narrow
+  scope. Do not inspect design-only artifacts unless the plan explicitly allows
+  them.
+- Condition-specific LoopRun design starts only after `prepare` creates that
+  iteration's `input_manifest.json`.
+- Candidate design sessions inspect only their allowed manifest-listed files and
+  edit only the recorded candidate file plus the manifest-listed
+  `pre_design_rationale.md` provenance artifact.
+- Do not reuse a design session across LoopRun conditions.
+
 ## Workflow
 
-1. Read `references/experiment-rules.md`.
-2. Read `references/scoring-contract.md`.
-3. Resolve the target project before proposing a new model:
-   - If the user named a project, use that project.
-   - If exactly one project is available, state that project and its default
-     spec explicitly before proceeding.
-   - If more than one project is available and the user did not name one, list
-     the available projects and ask the user to choose before running or editing
-     experiments.
-   - Use the project's long-lived `project/<project-name>` branch for candidate
-     iteration. Do not create per-experiment branches by default.
-   - Let `<project_name>` be the selected package-safe project directory under
-     `projects/`. Derive project paths and module commands from that name.
-4. Inspect the selected project's evaluation spec file before proposing a new model. Note
-   the current `EvaluationSpec.name`, `primary_metric`,
-   `primary_metric_direction`, CV strategy metadata, metric aggregation policy,
-   and report metric lines.
-5. Inspect the current leaderboard before proposing a new model. Establish the
-   baseline as the earliest successful run with the same `project_id`,
-   `spec_name`, `primary_metric`, and `primary_metric_direction`; compare older
-   rows only when those fields match. Use the latest three successful rows from
-   that comparable set as recent context.
-6. Choose one candidate improvement direction that serves the
-   AGENTIC-IMODELS goal of improving the performance-agentic-interpretability
-   frontier. Treat feature engineering, learned basis construction, additive
-   structure, pruning, calibration, ensembling, and agent-readable rendering as
-   searchable model-design dimensions.
-7. Edit only `projects/<project_name>/experiments/candidate_model.py` unless the user explicitly asks to change the harness.
-8. Run `uv run python -m projects.<project_name>.run_experiment`.
-9. Inspect `projects/<project_name>/results/leaderboard.csv`, the latest run report, and
-  `interpretability_packet.json`. Also inspect the matching tracked journal
-  under `projects/<project_name>/experiments/journal/`. If no agent
-  judgment exists, recommend using `.codex/agents/interpretability-judge.md`;
-  if a draft judgment exists, apply it through the fixed harness with
-  `apply_interpretability_judgment()` so the leaderboard, report, audit artifact,
-  and journal are updated together.
-10. Analyze performance and interpretability together only after an agent
-   judgment has been applied. If no judgment exists, treat interpretability as
-   `pending_agent_judgment` and do not compare interpretability scores. Report
-   whether the latest run improves predictive performance against the baseline,
-   and whether interpretability still needs judgment before frontier analysis.
-11. Recommend the next single experiment, but do not run another iteration
-    until the user chooses to continue.
-12. Use `.codex/agents/model-designer.md`, `.codex/agents/experiment-runner.md`, or `.codex/agents/result-analyst.md` for focused subagent work.
-13. When the user asks to persist an improvement, create exactly one commit for
-    the single modeling hypothesis. Do not mix harness, spec, data, or docs
-    changes into candidate-improvement commits.
+Follow `references/workflow.md` for setup/management, LoopRun condition
+isolation, standard candidate iteration, and PDCA artifact handling.
+For LoopRun design, preserve the causal trace from allowed condition-specific
+context to candidate edit in `pre_design_rationale.md` before editing the
+candidate.
 
 ## PDCA Run Artifact Usage
 
-- Plan: inspect previous `projects/<project_name>/results/leaderboard.csv` rows and relevant
-  `projects/<project_name>/results/runs/<run_id>/` artifacts before choosing one modeling hypothesis.
-  Baseline comparisons use the earliest successful run with the same project,
-  spec, primary metric, and primary metric direction. Name the candidate
-  improvement direction explicitly, and connect it to the
-  performance-agentic-interpretability frontier.
-- Do: edit only `projects/<project_name>/experiments/candidate_model.py` and run the fixed harness.
-- Check: inspect the current leaderboard row, `report.md`, `fold_metrics.json`,
-  `run_metadata.json`, interpretability artifacts, and any `error_traceback.txt`.
-  Treat interpretability as pending until `apply_interpretability_judgment()`
-  has written the judgment, audit artifact, leaderboard update, report update,
-  and journal update.
-- Audit: run `task verify-experiment -- <run_id>` before retaining a candidate
-  to check Git provenance, candidate snapshot hash, active spec metadata,
-  protected harness/spec/data drift, comparable baseline, and the tracked
-  journal entry.
-- Act: choose the next single experiment using score movement, fold behavior,
-  active spec metadata, `candidate_snapshot.py`, model string quality, and
-  performance-agentic-interpretability frontier position. Stop after
-  recommending the next iteration unless the user asks to run it.
-- Commit: if the iteration is kept, commit the candidate change on the current
-  `project/` branch with one modeling hypothesis per commit.
+- Plan: use compatible completed runs and manifest-allowed context to choose one
+  modeling hypothesis.
+- Do: edit only the allowed candidate file for the active project or LoopRun.
+- Check: inspect allowed run artifacts such as `fold_metrics.json`,
+  `run_metadata.json`, and `candidate_snapshot.py` when the current session
+  scope permits those files.
+- Act: recommend or prepare the next single experiment only after the current
+  result is recorded and audited.
 
 ## Guardrails
 
@@ -91,17 +60,26 @@ Use this skill for repeatable model-iteration work in this repository.
   iteration unless the user explicitly asks to change the experiment policy.
 - Do not use validation or test targets inside candidate code.
 - Do not inspect raw public competition files, hidden targets, generator code,
-  or benchmark internals when designing a candidate. Candidate runtime must not perform filesystem or network I/O
-  from `fit`, `predict`, or `__str__`.
+  or benchmark internals when designing a candidate. Candidate runtime must not
+  perform filesystem or network I/O from `fit`, `predict`, or `__str__`.
 - Do not create or mutate run logs from candidate code. Candidate models may
   provide `model_name`, `notes`, and `__str__`; the fixed harness owns log
   writing and artifact persistence.
 - Keep `__str__` informative enough for another agent to reason about the model.
-- During candidate iteration, keep edits inside `projects/<project_name>/experiments/candidate_model.py`.
-  That file is the model-design search space: feature engineering, learned
-  transformations, helper functions, custom transformers, additive components,
-  and internal model classes belong there when they serve one clear candidate
-  hypothesis.
+- Prefer candidate changes that alter `fit`/`predict` behavior and can move the
+  declared primary metric. A text-only representation change is an exception:
+  use it only when an interpretability judgment will be applied before the next
+  iteration, so the loop has evidence that the frontier moved.
+- During candidate iteration, keep edits inside
+  `projects/<project_name>/experiments/candidate_model.py`. That file is the
+  model-design search space.
 - Use commit history as the experiment path: one candidate improvement equals
   one commit on the project branch. Create separate branches only when the user
   explicitly asks for branch-based isolation.
+
+## Focused Subagents
+
+Use `.codex/agents/experiment-planner.md`, `.codex/agents/model-designer.md`,
+`.codex/agents/experiment-runner.md`, `.codex/agents/result-analyst.md`, or
+`.codex/agents/experiment-auditor.md` for isolated planning, design, execution,
+analysis, and audit work.

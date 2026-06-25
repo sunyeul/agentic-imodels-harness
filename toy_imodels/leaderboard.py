@@ -28,6 +28,8 @@ LEADERBOARD_COLUMNS = [
     "fold_metrics_path",
     "run_metadata_path",
     "candidate_snapshot_path",
+    "experiment_name",
+    "experiment_id",
     "loop_run_id",
     "condition",
     "iteration_index",
